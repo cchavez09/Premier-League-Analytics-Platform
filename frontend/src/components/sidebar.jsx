@@ -1,10 +1,10 @@
 import React from "react";
 
-export default function Sidebar({ active = "Home" }) {
+export default function Sidebar({ active = "Home", onSelect }) {
   const menuItems = [
     { label: "Home", icon: "🏠" },
     { label: "Predictions", icon: "📈" },
-    { label: "Team Insights", icon: "👥" },
+    { label: "Historical Data", icon: "📜" },
     { label: "Player Stats", icon: "👤" },
     { label: "Simulations", icon: "📊" },
     { label: "Settings", icon: "⚙️" },
@@ -12,23 +12,23 @@ export default function Sidebar({ active = "Home" }) {
 
   return (
     <div
-  style={{
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "250px",
-    height: "100vh",
-    backgroundColor: "#0D1117",
-    color: "#E5E7EB",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    padding: "1.5rem 1rem",
-    boxSizing: "border-box",
-    borderRight: "1px solid #1F2937",
-    fontFamily: "'Inter', sans-serif",
-  }}
->
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "250px",
+        height: "100vh",
+        backgroundColor: "#0D1117",
+        color: "#E5E7EB",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        padding: "1.5rem 1rem",
+        boxSizing: "border-box",
+        borderRight: "1px solid #1F2937",
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
       {/* Top Section */}
       <div>
         {/* Logo */}
@@ -79,6 +79,7 @@ export default function Sidebar({ active = "Home" }) {
             return (
               <div
                 key={item.label}
+                onClick={() => onSelect(item.label)} // ✅ click changes page
                 style={{
                   display: "flex",
                   alignItems: "center",

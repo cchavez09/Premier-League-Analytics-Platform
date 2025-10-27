@@ -18,6 +18,82 @@ cur.execute("SET datestyle TO 'DMY';")
 
 # --- Create the tables (only once) ---
 cur.execute("""
+CREATE TABLE IF NOT EXISTS TeamMatches (
+    id SERIAL PRIMARY KEY,
+    homeTeamID BIGINT,
+    awayTeamID INT,
+    MatchID VARCHAR(50),
+    Date DATE,
+    HomeTeam VARCHAR(100),
+    AwayTeam VARCHAR(100),
+    FTHG INT,
+    FTAG INT,
+    FTR VARCHAR(5),
+    HTHG INT,
+    HTAG INT,
+    HTR VARCHAR(5),
+    Referee VARCHAR(100),
+    HS INT,
+    AS_ INT,
+    HST INT,
+    AST INT,
+    HF INT,
+    AF INT,
+    HC INT,
+    AC INT,
+    HY INT,
+    AY INT,
+    HR INT,
+    AR INT,
+    B365H FLOAT,
+    B365D FLOAT,
+    B365A FLOAT
+);
+""")
+ 
+cur.execute("""
+CREATE TABLE IF NOT EXISTS Standings (
+    id SERIAL PRIMARY KEY,
+    TeamId INT,
+    Team VARCHAR(100),
+    Season VARCHAR(20),
+    MatchesPlayed INT,
+    Wins INT,
+    Draws INT,
+    Losses INT,
+    Points INT,
+    AvgB365H FLOAT,
+    AvgB365D FLOAT,
+    AvgB365A FLOAT,
+    AvgB365Overall FLOAT,
+    TotalHS INT,
+    PerGameHS FLOAT,
+    TotalAS INT,
+    PerGameAS FLOAT,
+    TotalHST INT,
+    PerGameHST FLOAT,
+    TotalAST INT,
+    PerGameAST FLOAT,
+    TotalHC INT,
+    PerGameHC FLOAT,
+    TotalAC INT,
+    PerGameAC FLOAT,
+    TotalHF INT,
+    PerGameHF FLOAT,
+    TotalAF INT,
+    PerGameAF FLOAT,
+    TotalHY INT,
+    PerGameHY FLOAT,
+    TotalAY INT,
+    PerGameAY FLOAT,
+    TotalHR INT,
+    PerGameHR FLOAT,
+    TotalAR INT,
+    PerGameAR FLOAT
+);
+""")
+
+cur.execute("""
 CREATE TABLE IF NOT EXISTS StandardizedMatches (
     id SERIAL PRIMARY KEY,
     HomeTeamId BIGINT,

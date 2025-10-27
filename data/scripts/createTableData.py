@@ -9,7 +9,7 @@ print("SCRIPT DIR:", os.path.dirname(os.path.abspath(__file__)))
 conn = psycopg2.connect(
     dbname="soccerdata_db",
     user="postgres",
-    password="HalaMadrid1!",
+    password="passwd",
     host="localhost",
     port="5432"
 )

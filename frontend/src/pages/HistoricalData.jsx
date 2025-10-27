@@ -3,8 +3,10 @@ import React, { useState } from "react";
 export default function HistoricalData() {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [seasons, setSeasons] = useState([]); // 🆕 list of seasons for that team
-  const [loading, setLoading] = useState(false); // 🆕 loading state
+  const [loadingSeasons, setLoadingSeasons] = useState(false);
+  const [loadingMatches, setLoadingMatches] = useState(false);
   const [selectedSeason, setSelectedSeason] = useState(""); // 🆕 which season user picked
+  const [matches, setMatches] = useState([]); // 🆕 holds all matc
 
   // === List of 44 Premier League teams (with stadiums for demo) ===
   const teams = [
@@ -57,21 +59,50 @@ export default function HistoricalData() {
 
   const handleSelect = async (team) => {
     setSelectedTeam(team);
-    setLoading(true);
+    setSelectedSeason("");
+    setMatches([]);
+    setLoadingSeasons(true);
+
     try {
-      const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
+const response = await fetch(
+      `http://localhost:5000/api/teams/${team.name}/seasons`
+      );      
       const data = await response.json();
       setSeasons(data);
     } catch (err) {
       console.error("Error fetching seasons:", err);
     }
-    setLoading(false);
+
+    setLoadingSeasons(false);
+  };
+
+  // 🆕 Fetch matches when a season is chosen
+  const handleSeasonSelect = async (season) => {
+    if (!season) return;
+
+    setSelectedSeason(season);
+    setMatches([]);
+    setLoadingMatches(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${season}/matches`
+      );
+      const data = await response.json();
+      console.log("Fetched matches:", data);
+      setMatches(data);
+    } catch (err) {
+      console.error("Error fetching matches:", err);
+    }
+
+    setLoadingMatches(false);
   };
 
   const handleReset = () => {
-  setSelectedTeam(null);
-  setSeasons([]);
-  setSelectedSeason("");
+    setSelectedTeam(null);
+    setSeasons([]);
+    setSelectedSeason("");
+    setMatches([]);
   };
 
   return (
@@ -213,7 +244,7 @@ export default function HistoricalData() {
             ></div>
             <h2 style={{ marginBottom: "0.5rem" }}>{selectedTeam.name}</h2>
             <p style={{ color: "#9CA3AF" }}>{selectedTeam.stadium}</p>
-            {loading ? (
+            {loadingSeasons ? (
               <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>Loading seasons...</p>
             ) : seasons.length > 0 ? (
               <div style={{ marginTop: "1.5rem" }}>
@@ -224,7 +255,7 @@ export default function HistoricalData() {
                 <select
                   id="season"
                   value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(e.target.value)}
+                  onChange={(e) => handleSeasonSelect(e.target.value)}
                   style={{
                     marginTop: "0.5rem",
                     padding: "0.5rem",
@@ -248,14 +279,123 @@ export default function HistoricalData() {
               </p>
             )}
 
-            {selectedSeason && (
-              <p style={{ color: "#E5E7EB", marginTop: "1.5rem" }}>
-                Showing data for <strong>{selectedSeason}</strong>.
+            {/* Matches Section */}
+            {loadingMatches && <p style={{ color: "#9CA3AF" }}>Loading matches...</p>}
+
+            {selectedSeason && matches.length > 0 && !loadingMatches && (
+              <div style={{ marginTop: "2rem", textAlign: "left" }}>
+                <h3 style={{ color: "#00FF87", textAlign: "center" }}>
+                  {selectedTeam.name} – {selectedSeason} Matches
+                </h3>
+
+                <table
+                  style={{
+                    width: "100%",
+                    marginTop: "1rem",
+                    borderCollapse: "collapse",
+                    color: "#E5E7EB",
+                  }}
+                >
+                  <thead>
+                    <tr style={{ backgroundColor: "#1F2937" }}>
+                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Date</th>
+                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Home</th>
+                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Away</th>
+                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Score</th>
+                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matches.map((m, idx) => {
+                      const isHome = m.home_team === selectedTeam.name;
+                      let resultLabel = "";
+
+                      if (m.ftr === "D") {
+                        resultLabel = "Draw";
+                      } else if ((m.ftr === "H" && isHome) || (m.ftr === "A" && !isHome)) {
+                        resultLabel = "Win";
+                      } else {
+                        resultLabel = "Loss";
+                      }
+                      
+                      return (
+                        <tr
+                          key={idx}
+                          style={{
+                            backgroundColor: idx % 2 === 0 ? "#0F172A" : "#111827",
+                          }}
+                        >
+                          {/* Easier format to view Date */}
+                          <td style={{ padding: "0.75rem" }}>
+                            {new Date(m.date).toLocaleDateString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </td>
+
+                          {/* Assign home team to home column */}   
+                          {/* Home Team */}
+                          <td
+                            style={{
+                              padding: "0.75rem",
+                              fontWeight: "normal",
+                              color: isHome ? "#00FF87" : "#E5E7EB",
+                            }}
+                          >
+                            {m.home_team}
+                          </td>
+                          
+                          {/* Assign away team to away column */}
+                          {/* Away Team */}
+                          <td
+                            style={{
+                              padding: "0.75rem",
+                              fontWeight: "normal",
+                              color: !isHome ? "#00FF87" : "#E5E7EB",
+                            }}
+                          >
+                            {m.away_team}
+                          </td>
+
+                          {/* Score */}
+                          <td style={{ padding: "0.75rem" }}>
+                            {`${m.fthg ?? 0} - ${m.ftag ?? 0}`}
+                          </td>
+
+                          {/* Result */}
+                          <td
+                            style={{
+                              padding: "0.75rem",
+                              color:
+                                resultLabel === "Win"
+                                  ? "#00FF87"
+                                  : resultLabel === "Loss"
+                                  ? "#FF4D4D"
+                                  : "#E5E7EB",
+                            }}
+                          >
+                            {resultLabel}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Empty message */}
+            {selectedSeason && matches.length === 0 && !loadingMatches && (
+              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>
+                No match data found for {selectedSeason}.
               </p>
             )}
           </div>
         </div>
       )}
+      
     </div>
   );
+  
 }

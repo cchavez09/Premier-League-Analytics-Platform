@@ -8,15 +8,15 @@ app.use(express.json());
 
 // Import routes
 const teamRoutes = require('./routes/teams');
-const playerRoutes = require('./routes/players');
+//const playerRoutes = require('./routes/players');
 const fixtureRoutes = require('./routes/fixtures');
-const predictionsRoutes = require('./routes/predictions');
+//onst predictionsRoutes = require('./routes/predictions');
 
 // Use routes
 app.use('/api/teams', teamRoutes);
-app.use('/api/players', playerRoutes);
+//app.use('/api/players', playerRoutes);
 app.use('/api/fixtures', fixtureRoutes);
-app.use('/api/predictions', predictionsRoutes);
+//app.use('/api/predictions', predictionsRoutes);
 
 app.get('/', (req, res) => {
   res.send('Soccer App Backend is running ⚽');

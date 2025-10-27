@@ -2,6 +2,9 @@ import React, { useState } from "react";
 
 export default function HistoricalData() {
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [seasons, setSeasons] = useState([]); // 🆕 list of seasons for that team
+  const [loading, setLoading] = useState(false); // 🆕 loading state
+  const [selectedSeason, setSelectedSeason] = useState(""); // 🆕 which season user picked
 
   // === List of 44 Premier League teams (with stadiums for demo) ===
   const teams = [
@@ -52,8 +55,24 @@ export default function HistoricalData() {
     { name: "Blackpool", stadium: "Bloomfield Road, Blackpool" },
   ];
 
-  const handleSelect = (team) => setSelectedTeam(team);
-  const handleReset = () => setSelectedTeam(null);
+  const handleSelect = async (team) => {
+    setSelectedTeam(team);
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
+      const data = await response.json();
+      setSeasons(data);
+    } catch (err) {
+      console.error("Error fetching seasons:", err);
+    }
+    setLoading(false);
+  };
+
+  const handleReset = () => {
+  setSelectedTeam(null);
+  setSeasons([]);
+  setSelectedSeason("");
+  };
 
   return (
     <div
@@ -194,10 +213,46 @@ export default function HistoricalData() {
             ></div>
             <h2 style={{ marginBottom: "0.5rem" }}>{selectedTeam.name}</h2>
             <p style={{ color: "#9CA3AF" }}>{selectedTeam.stadium}</p>
-            <p style={{ color: "#D1D5DB", marginTop: "1rem" }}>
-              Detailed season-by-season analytics for{" "}
-              <strong>{selectedTeam.name}</strong> will appear here.
-            </p>
+            {loading ? (
+              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>Loading seasons...</p>
+            ) : seasons.length > 0 ? (
+              <div style={{ marginTop: "1.5rem" }}>
+                <label htmlFor="season" style={{ color: "#D1D5DB" }}>
+                  Select a Premier League season:
+                </label>
+                <br />
+                <select
+                  id="season"
+                  value={selectedSeason}
+                  onChange={(e) => setSelectedSeason(e.target.value)}
+                  style={{
+                    marginTop: "0.5rem",
+                    padding: "0.5rem",
+                    borderRadius: "8px",
+                    backgroundColor: "#0F172A",
+                    color: "#E5E7EB",
+                    border: "none",
+                  }}
+                >
+                  <option value="">-- Select --</option>
+                  {seasons.map((s, i) => (
+                    <option key={i} value={s.season}>
+                      {s.season}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>
+                No Premier League seasons found for {selectedTeam.name}.
+              </p>
+            )}
+
+            {selectedSeason && (
+              <p style={{ color: "#E5E7EB", marginTop: "1.5rem" }}>
+                Showing data for <strong>{selectedSeason}</strong>.
+              </p>
+            )}
           </div>
         </div>
       )}

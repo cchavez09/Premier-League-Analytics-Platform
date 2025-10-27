@@ -2,14 +2,20 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../database');
 
-// Example endpoint: get all teams
-router.get('/', async (req, res) => {
+router.get("/:team/seasons", async (req, res) => {
+  const { team } = req.params;
   try {
-    const result = await pool.query('SELECT DISTINCT hometeam FROM teammatches ORDER BY hometeam');
+    const result = await pool.query(
+      `SELECT DISTINCT Season
+       FROM StandardizedMatches
+       WHERE HomeTeam = $1 OR AwayTeam = $1
+       ORDER BY Season DESC`,
+      [team]
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server Error');
+    console.error("❌ SQL Error:", err);
   }
 });
 

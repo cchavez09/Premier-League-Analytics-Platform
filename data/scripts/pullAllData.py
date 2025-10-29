@@ -1,163 +1,410 @@
-import requests
-import pandas as pd
 import os
-import time
-import json
+import pandas as pd
+import requests
 
-API_TOKEN = 'ee9c76d4c4d34046ba22762d5802fd09'
-BASE_URL = 'https://api.football-data.org/v4/'
-HEADERS = {'X-Auth-Token': API_TOKEN}
-DATA_DIR = './data/files/'
-
-# Ensure the data directory exists
+# Directories
+DATA_DIR = "data/files/StandardizedSeasonMatches"
+TEAM_FILES_DIR = "data/files/TeamFiles"
+STANDINGS_DIR = "data/files/Standings"
 os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(TEAM_FILES_DIR, exist_ok=True)
+os.makedirs(STANDINGS_DIR, exist_ok=True)
 
-# Hardcoded list of English teams (IDs and names)
-english_teams = [
-    {'id': 57, 'name': 'Arsenal FC'},
-    {'id': 58, 'name': 'Aston Villa FC'},
-    {'id': 59, 'name': 'Blackburn Rovers FC'},
-    {'id': 60, 'name': 'Bolton Wanderers FC'},
-    {'id': 61, 'name': 'Chelsea FC'},
-    {'id': 62, 'name': 'Everton FC'},
-    {'id': 63, 'name': 'Fulham FC'},
-    {'id': 64, 'name': 'Liverpool FC'},
-    {'id': 65, 'name': 'Manchester City FC'},
-    {'id': 66, 'name': 'Manchester United FC'},
-    {'id': 67, 'name': 'Newcastle United FC'},
-    {'id': 68, 'name': 'Norwich City FC'},
-    {'id': 69, 'name': 'Queens Park Rangers FC'},
-    {'id': 70, 'name': 'Stoke City FC'},
-    {'id': 71, 'name': 'Sunderland AFC'},
-    {'id': 72, 'name': 'Swansea City AFC'},
-    {'id': 73, 'name': 'Tottenham Hotspur FC'},
-    {'id': 74, 'name': 'West Bromwich Albion FC'},
-    {'id': 75, 'name': 'Wigan Athletic FC'},
-    {'id': 76, 'name': 'Wolverhampton Wanderers FC'},
-    {'id': 322, 'name': 'Hull City AFC'},
-    {'id': 325, 'name': 'Portsmouth FC'},
-    {'id': 328, 'name': 'Burnley FC'},
-    {'id': 332, 'name': 'Birmingham City FC'},
-    {'id': 336, 'name': 'Blackpool FC'},
-    {'id': 338, 'name': 'Leicester City FC'},
-    {'id': 340, 'name': 'Southampton FC'},
-    {'id': 341, 'name': 'Leeds United FC'},
-    {'id': 342, 'name': 'Derby County FC'},
-    {'id': 343, 'name': 'Middlesbrough FC'},
-    {'id': 345, 'name': 'Sheffield Wednesday FC'},
-    {'id': 346, 'name': 'Watford FC'},
-    {'id': 347, 'name': 'AFC Wimbledon'},
-    {'id': 348, 'name': 'Charlton Athletic FC'},
-    {'id': 349, 'name': 'Ipswich Town FC'},
-    {'id': 351, 'name': 'Nottingham Forest FC'},
-    {'id': 354, 'name': 'Crystal Palace FC'},
-    {'id': 355, 'name': 'Reading FC'},
-    {'id': 356, 'name': 'Sheffield United FC'},
-    {'id': 357, 'name': 'Barnsley FC'},
-    {'id': 361, 'name': 'Rochdale AFC'},
-    {'id': 363, 'name': 'Chesterfield FC'},
-    {'id': 365, 'name': 'Colchester United FC'},
-    {'id': 366, 'name': 'Torquay United FC'},
-    {'id': 369, 'name': 'Walsall FC'},
-    {'id': 370, 'name': 'Gillingham FC'},
-    {'id': 376, 'name': 'Northampton Town FC'},
-    {'id': 384, 'name': 'Millwall FC'},
-    {'id': 385, 'name': 'Rotherham United FC'},
-    {'id': 387, 'name': 'Bristol City FC'},
-    {'id': 389, 'name': 'Luton Town FC'},
-    {'id': 391, 'name': 'Notts County FC'},
-    {'id': 393, 'name': 'Port Vale FC'},
-    {'id': 394, 'name': 'Huddersfield Town AFC'},
-    {'id': 396, 'name': 'Stockport County FC'},
-    {'id': 397, 'name': 'Brighton & Hove Albion FC'},
-    {'id': 399, 'name': 'Leyton Orient FC'},
-    {'id': 400, 'name': 'Bristol Rovers FC'},
-    {'id': 402, 'name': 'Brentford FC'},
-    {'id': 409, 'name': 'Milton Keynes Dons FC'},
-    {'id': 411, 'name': 'Cheltenham Town FC'},
-    {'id': 563, 'name': 'West Ham United FC'},
-    {'id': 1044, 'name': 'AFC Bournemouth'},
+# Columns to keep
+columns_to_keep = [
+    'homeTeamID', 'awayTeamID', 'MatchID', 'Date', 'HomeTeam', 'AwayTeam',
+    'FTHG', 'FTAG', 'FTR', 'HTHG', 'HTAG', 'HTR', 'Referee', 'HS', 'AS',
+    'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR', 'B365H',
+    'B365D', 'B365A'
 ]
 
-def fetch_data(endpoint):
-    """Fetch data from the API."""
-    response = requests.get(BASE_URL + endpoint, headers=HEADERS)
-    if response.status_code == 200:
-        return response.json()
-    else:
-        print(f"Error fetching data from {endpoint}: {response.status_code}")
-        return None
+# Team name to ID mapping
+team_id_map = {
+    "Arsenal": 1, "Aston Villa": 2, "Birmingham": 3, "Blackburn": 4, "Blackpool": 5,
+    "Bolton": 6, "Bournemouth": 7, "Brentford": 8, "Brighton": 9, "Burnley": 10,
+    "Cardiff": 11, "Charlton": 12, "Chelsea": 13, "Crystal Palace": 14, "Derby": 15,
+    "Everton": 16, "Fulham": 17, "Huddersfield": 18, "Hull": 19, "Ipswich": 20,
+    "Leeds": 21, "Leicester": 22, "Liverpool": 23, "Luton": 24, "Man City": 25,
+    "Man United": 26, "Middlesbrough": 27, "Newcastle": 28, "Norwich": 29,
+    "Nott'm Forest": 30, "Portsmouth": 31, "QPR": 32, "Reading": 33,
+    "Sheffield United": 34, "Southampton": 35, "Stoke": 36, "Sunderland": 37,
+    "Swansea": 38, "Tottenham": 39, "Watford": 40, "West Brom": 41, "West Ham": 42,
+    "Wigan": 43, "Wolves": 44
+}
 
-def save_to_csv(data, filename):
-    """Save data to a CSV file."""
-    df = pd.json_normalize(data)
-    df.to_csv(os.path.join(DATA_DIR, filename), index=False)
+# Global match ID counter
+match_id_counter = 1
 
-# Fetch and save individual match data
-def fetch_and_save_match_data(match_id):
-    """Fetch and save individual match data."""
-    match_data = fetch_data(f"matches/{match_id}")
-    if match_data:
-        # Extract relevant information
-        match_info = {
-            "match_id": match_data["id"],
-            "utcDate": match_data["utcDate"],
-            "status": match_data["status"],
-            "attendance": match_data.get("attendance", 0),  # Default to 0 if not available
-            "venue": match_data.get("venue", "Unknown"),  # Default to "Unknown" if not available
-            "home_team": match_data["homeTeam"]["name"],
-            "away_team": match_data["awayTeam"]["name"],
-            "home_score": match_data["score"]["fullTime"].get("home", 0),  # Default to 0 if not available
-            "away_score": match_data["score"]["fullTime"].get("away", 0),  # Default to 0 if not available
-            "goals": match_data.get("goals", []),  # Default to an empty list if not available
-            "bookings": match_data.get("bookings", []),  # Default to an empty list if not available
-            "substitutions": match_data.get("substitutions", []),  # Default to an empty list if not available
-            "referees": match_data.get("referees", []),  # Default to an empty list if not available
-            "statistics": match_data.get("statistics", {}),  # Default to an empty dictionary if not available
-        }
-        with open(f"match_{match_id}.json", 'w') as json_file:
-            json.dump(match_info, json_file, indent=4)
-
-# Example usage: Fetch and save match data for a specific match ID
-match_id = 537848
-fetch_and_save_match_data(match_id)
-
-# Fetch and save data for person 38101
-# person_id = 38101
-# competitions = "PL"
-
-# all_matches = []
-
-# while True:
-#     person_matches = fetch_data(f"persons/{person_id}/matches?e=ASSIST")
-#     if person_matches and 'matches' in person_matches:
-#         all_matches.extend(person_matches['matches'])
-#     else:
-#         break
-
-# if all_matches:
-#     save_to_csv(all_matches, f"person_{person_id}_career_assists.csv")
-# Fetch and save data for each English team and year
-# for team in english_teams:
-#     team_id = team['id']
-#     team_name = team['name']
-#     total_matches = []
-# # Define the date range for the 1979/80 season to the 2025/26 season
-# date_from = "2000-08-01"
-# date_to = "2026-05-31"
-
-# # Fetch and save data for each English team
-# for team in english_teams:
-#     team_id = team['id']
-#     team_name = team['name']
+def download_and_process_season(season_code, season_name):
+    """Download and process a single season's data."""
+    global match_id_counter
+    url = f"https://www.football-data.co.uk/mmz4281/{season_code}/E0.csv"
+    response = requests.get(url)
     
-#     # Fetch all matches for the team within the date range
-#     matches = fetch_data(f"teams/{team_id}/?matches/?dateFrom={date_from}/?dateTo={date_to}")
-#     time.sleep(6)  # Wait 6 seconds between requests
-#     if matches and 'matches' in matches:
-#         # Save all matches for the team in a single CSV file
-#         save_to_csv(matches['matches'], f"{team_name}_all_matches.csv")
+    if response.status_code == 200:
+        # Save the raw CSV file
+        raw_file_path = os.path.join(DATA_DIR, f"{season_name}.csv")
+        with open(raw_file_path, "wb") as file:
+            file.write(response.content)
+        
+        # Load the CSV into a DataFrame
+        try:
+            df = pd.read_csv(raw_file_path)
+        except Exception as e:
+            print(f"Error reading file {raw_file_path}: {e}")
+            return
+        
+        # Validate the file format
+        expected_columns = [
+            'Date', 'HomeTeam', 'AwayTeam', 'FTHG', 'FTAG', 'FTR', 'HTHG', 'HTAG', 'HTR',
+            'Referee', 'HS', 'AS', 'HST', 'AST', 'HF', 'AF', 'HC', 'AC', 'HY', 'AY', 'HR', 'AR',
+            'B365H', 'B365D', 'B365A'
+        ]
+        missing_columns = [col for col in expected_columns if col not in df.columns]
+        extra_columns = [col for col in df.columns if col not in expected_columns]
 
-#     # Save total matches for the team
-#     if total_matches:
-#         save_to_csv(total_matches, f"{team_name}_total.csv")
+        if missing_columns:
+            print(f"File {raw_file_path} is missing required columns: {missing_columns}. Skipping...")
+            return
+        
+        if extra_columns:
+            print(f"File {raw_file_path} has extra columns: {extra_columns}. These will be ignored.")
+            df = df[expected_columns]  # Keep only the expected columns
+
+        # Handle missing values
+        df = df.fillna(0)  # Replace NaN values with 0
+
+        # Format the Date column to dd/mm/yyyy
+        try:
+            df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y')
+        except Exception as e:
+            print(f"Error formatting dates in file {raw_file_path}: {e}")
+            return
+        
+        # Map team names to unique IDs
+        df['homeTeamID'] = df['HomeTeam'].map(team_id_map)
+        df['awayTeamID'] = df['AwayTeam'].map(team_id_map)
+
+        # Assign unique match IDs
+        df['MatchID'] = range(match_id_counter, match_id_counter + len(df))
+        match_id_counter += len(df)
+
+        # Reorder columns to place IDs first
+        id_columns = ['MatchID', 'homeTeamID', 'awayTeamID']
+        other_columns = [col for col in df.columns if col not in id_columns]
+        df = df[id_columns + other_columns]
+
+        # Save the processed file
+        processed_file_path = os.path.join(DATA_DIR, f"{season_name}.csv")
+        df.to_csv(processed_file_path, index=False)
+        print(f"Processed and saved: {processed_file_path}")
+    else:
+        print(f"Failed to download data for season {season_name} (HTTP {response.status_code})")
+
+def pullalldata():
+    """Download and process data for all seasons from 2005-06 to 2025-26."""
+    # Generate season codes in ascending order (oldest to newest)
+    season_codes = [
+        "0506", "0607", "0708", "0809", "0910", 
+        "1011", "1112", "1213", "1314", "1415", 
+        "1516", "1617", "1718", "1819", "1920", 
+        "2021", "2122", "2223", "2324", "2425", "2526"
+    ]    
+    print(f"Season codes to process: {season_codes}")
+    for season_code in season_codes:
+        season_name = f"EPLS{season_code}"
+        download_and_process_season(season_code, season_name)
+
+
+def pullrecentdata(season_code):
+    """Download and process data for a specific season."""
+    global match_id_counter
+
+    try:
+        # Load existing data to get the current match ID count
+        all_files = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
+        if all_files:
+            all_data_frames = []
+            for file in all_files:
+                try:
+                    df = pd.read_csv(file)
+                    all_data_frames.append(df)
+                except Exception as e:
+                    print(f"Error reading file {file}: {e}")
+                    continue
+
+            if all_data_frames:
+                all_data = pd.concat(all_data_frames, ignore_index=True)
+                if 'MatchID' in all_data.columns:
+                    match_id_counter = all_data['MatchID'].max() + 1  # Set counter to the next available MatchID
+                else:
+                    print("Warning: 'MatchID' column not found in existing data. Starting from 1.")
+                    match_id_counter = 1
+            else:
+                print("No valid data found in existing files. Starting from MatchID 1.")
+                match_id_counter = 1
+        else:
+            print("No existing data files found. Starting from MatchID 1.")
+            match_id_counter = 1
+
+        # Process the specified season
+        season_name = f"EPLS{season_code}"
+        download_and_process_season(season_code, season_name)
+        print(f"Season {season_code} has been downloaded and processed. Call updateyearlystandings('{season_code}') to update standings for this season.")
+    except Exception as e:
+        print(f"Error in pullrecentdata for season {season_code}: {e}")
+        
+def savealltimematches():
+    """Save all-time matches for each team."""
+    all_files = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
+    all_data_frames = []
+    for f in all_files:
+        try:
+            print(f"Reading file: {f}")
+            df = pd.read_csv(f)
+            all_data_frames.append(df)
+        except Exception as e:
+            print(f"Error reading file {f}: {e}")
+            continue
+
+    if not all_data_frames:
+        print("No valid data found.")
+        return
+
+    all_data = pd.concat(all_data_frames, ignore_index=True)
+    
+    for team, team_id in team_id_map.items():
+        team_matches = all_data[(all_data['HomeTeam'] == team) | (all_data['AwayTeam'] == team)]
+        team_matches = team_matches[columns_to_keep]  # Keep only the specified columns
+        
+        # Save the team-specific dataset
+        team_file_path = os.path.join(TEAM_FILES_DIR, f"{team}AllTime.csv")
+        team_matches.to_csv(team_file_path, index=False)
+        print(f"Updated team dataset saved: {team}AllTime.csv")
+
+
+def createyearlystandings():
+    """Create yearly standings with per-game and total stats."""
+    all_files = [os.path.join(DATA_DIR, f) for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
+    all_data_frames = []
+
+    for f in all_files:
+        try:
+            print(f"Reading file: {f}")
+            df = pd.read_csv(f)
+
+            # Extract the season from the file name (e.g., "EPLS0708.csv" -> "2007/08")
+            season_code = os.path.basename(f).split('.')[0]  # Get the file name without extension
+            season = f"20{season_code[-4:-2]}/20{season_code[-2:]}"  # Convert "0708" to "2007/08"
+
+            # Add the Season column
+            df['Season'] = season
+
+            all_data_frames.append(df)
+        except Exception as e:
+            print(f"Error reading file {f}: {e}")
+            continue
+
+    if not all_data_frames:
+        print("No valid data found.")
+        return
+
+    all_data = pd.concat(all_data_frames, ignore_index=True)
+
+    # Map points for home and away matches
+    all_data['PointsHome'] = all_data['FTR'].map({'H': 3, 'D': 1, 'A': 0})
+    all_data['PointsAway'] = all_data['FTR'].map({'H': 0, 'D': 1, 'A': 3})
+
+    standings = []
+    for season in all_data['Season'].unique():
+        season_data = all_data[all_data['Season'] == season]
+        season_teams = pd.concat([season_data['HomeTeam'], season_data['AwayTeam']]).dropna().unique()
+        season_teams = [str(team) for team in season_teams]  # Ensure all team names are strings
+        teams_stats = []
+
+        for team in season_teams:
+            home_matches = season_data[season_data['HomeTeam'] == team]
+            away_matches = season_data[season_data['AwayTeam'] == team]
+
+            stats = {
+                'TeamId': team_id_map.get(team),  # Use integer TeamId
+                'Team': team,
+                'Season': season,
+                'MatchesPlayed': len(home_matches) + len(away_matches),
+                'Wins': len(home_matches[home_matches['FTR'] == 'H']) + len(away_matches[away_matches['FTR'] == 'A']),
+                'Draws': len(home_matches[home_matches['FTR'] == 'D']) + len(away_matches[away_matches['FTR'] == 'D']),
+                'Losses': len(home_matches[home_matches['FTR'] == 'A']) + len(away_matches[away_matches['FTR'] == 'H']),
+                'Points': home_matches['PointsHome'].sum() + away_matches['PointsAway'].sum(),
+                'GoalsScored': home_matches['FTHG'].sum() + away_matches['FTAG'].sum(),  # Add this line
+                'GoalsConceded': home_matches['FTAG'].sum() + away_matches['FTHG'].sum(),  # Add this line
+                'GoalDifference': (home_matches['FTHG'].sum() + away_matches['FTAG'].sum()) -
+                                  (home_matches['FTAG'].sum() + away_matches['FTHG'].sum()),  # Add this line
+            }
+
+            # Add per-game and total stats for the requested columns
+            for col in ['HS', 'AS', 'HST', 'AST', 'HC', 'AC', 'HF', 'AF', 'HY', 'AY', 'HR', 'AR']:
+                stats[f"Total{col}"] = home_matches[col].sum() + away_matches[col].sum()
+                stats[f"PerGame{col}"] = stats[f"Total{col}"] / stats['MatchesPlayed'] if stats['MatchesPlayed'] > 0 else 0
+
+            teams_stats.append(stats)
+
+        standings_df = pd.DataFrame(teams_stats)
+
+        # Skip empty DataFrames
+        if standings_df.empty:
+            print(f"Debug: No data found for season {season}")
+            continue
+        # Add Rank column based on Points (higher points = lower rank)
+        standings_df = standings_df.sort_values(by='Points', ascending=False).reset_index(drop=True)
+        standings_df['Rank'] = standings_df.index + 1
+
+        # Reorder columns to place TeamId and Rank as the first columns
+        columns_order = ['TeamId', 'Rank'] + [col for col in standings_df.columns if col not in ['TeamId', 'Rank']]
+        standings_df = standings_df[columns_order]
+
+        standings_df = standings_df.sort_values(by='Points', ascending=False).reset_index(drop=True)
+        standings_path = os.path.join(STANDINGS_DIR, f"EPLStandings{season.replace('/', '-')}.csv")
+        standings_df.to_csv(standings_path, index=False)
+        print(f"Standings for season {season} saved to {standings_path}")
+        standings.append(standings_df)
+
+def createfinaldataset():
+    """Create the final dataset with all relevant stats, including rank, relegations, and titles."""
+    try:
+        # Load yearly standings
+        all_files = [os.path.join(STANDINGS_DIR, f) for f in os.listdir(STANDINGS_DIR) if f.endswith(".csv")]
+        all_data_frames = []
+
+        for f in all_files:
+            print(f"Reading standings file: {f}")
+            df = pd.read_csv(f)
+
+            # Ensure TeamId is present
+            if 'TeamId' not in df.columns:
+                print(f"Warning: 'TeamId' column missing in {f}. Attempting to map TeamId...")
+                df['TeamId'] = df['Team'].map(team_id_map)
+
+            # Ensure Rank column is present
+            if 'Rank' not in df.columns:
+                print(f"Error: 'Rank' column missing in {f}. Skipping this file.")
+                continue
+
+            # Add Relegations and Titles columns
+            df['Relegations'] = (df['Rank'] > 16).astype(int)  # 1 if rank > 16, else 0
+            df['Titles'] = (df['Rank'] == 1).astype(int)  # 1 if rank == 1, else 0
+
+            all_data_frames.append(df)
+
+        if not all_data_frames:
+            print("No valid standings data found.")
+            return
+
+        all_data = pd.concat(all_data_frames, ignore_index=True)
+
+        # Create the final dataset
+        final_dataset = []
+        for _, row in all_data.iterrows():
+            try:
+                final_dataset.append({
+                    'TeamId': row['TeamId'],
+                    'Team': row['Team'],
+                    'Season': row['Season'],
+                    'Rank': row['Rank'],
+                    'MatchesPlayed': row['MatchesPlayed'],
+                    'Wins': row['Wins'],
+                    'Draws': row['Draws'],
+                    'Losses': row['Losses'],
+                    'Points': row['Points'],
+                    'GoalsScored': row['GoalsScored'],
+                    'GoalsConceded': row['GoalsConceded'],
+                    'GoalDifference': row['GoalDifference'],
+                    'Relegations': row['Relegations'],
+                    'Titles': row['Titles'],
+                })
+            except KeyError as e:
+                print(f"Error processing row: {row}. Missing column: {e}")
+                continue
+
+        final_df = pd.DataFrame(final_dataset)
+
+        # Save the final dataset
+        final_dataset_path = os.path.join(DATA_DIR, "OverallTeamStats.csv")
+        final_df.to_csv(final_dataset_path, index=False)
+        print(f"Final dataset saved to {final_dataset_path}")
+
+    except Exception as e:
+        print(f"Error creating final dataset: {e}")
+
+def updateyearlystandings(season_code):
+    """Update yearly standings for a specific season."""
+    try:
+        # Load the processed season data
+        season_file = os.path.join(DATA_DIR, f"EPLS{season_code}.csv")
+        if not os.path.exists(season_file):
+            print(f"Season file for {season_code} not found. Run download_and_process_season() first.")
+            return
+
+        print(f"Updating standings for season {season_code} using file {season_file}")
+        df = pd.read_csv(season_file)
+
+        # Extract the season (e.g., "0708" -> "2007/08")
+        season = f"20{season_code[:2]}/20{season_code[2:]}"
+
+        # Map points for home and away matches
+        df['PointsHome'] = df['FTR'].map({'H': 3, 'D': 1, 'A': 0})
+        df['PointsAway'] = df['FTR'].map({'H': 0, 'D': 1, 'A': 3})
+
+        # Calculate standings for the season
+        season_teams = pd.concat([df['HomeTeam'], df['AwayTeam']]).dropna().unique()
+        season_teams = [str(team) for team in season_teams]  # Ensure all team names are strings
+        teams_stats = []
+
+        for team in season_teams:
+            home_matches = df[df['HomeTeam'] == team]
+            away_matches = df[df['AwayTeam'] == team]
+
+            stats = {
+                'TeamId': team_id_map.get(team),  # Use integer TeamId
+                'Team': team,
+                'Season': season,
+                'MatchesPlayed': len(home_matches) + len(away_matches),
+                'Wins': len(home_matches[home_matches['FTR'] == 'H']) + len(away_matches[away_matches['FTR'] == 'A']),
+                'Draws': len(home_matches[home_matches['FTR'] == 'D']) + len(away_matches[away_matches['FTR'] == 'D']),
+                'Losses': len(home_matches[home_matches['FTR'] == 'A']) + len(away_matches[away_matches['FTR'] == 'H']),
+                'Points': home_matches['PointsHome'].sum() + away_matches['PointsAway'].sum(),
+                'GoalsScored': home_matches['FTHG'].sum() + away_matches['FTAG'].sum(),
+                'GoalsConceded': home_matches['FTAG'].sum() + away_matches['FTHG'].sum(),
+                'GoalDifference': (home_matches['FTHG'].sum() + away_matches['FTAG'].sum()) -
+                                  (home_matches['FTAG'].sum() + away_matches['FTHG'].sum()),
+            }
+
+            # Add per-game and total stats for the requested columns
+            for col in ['HS', 'AS', 'HST', 'AST', 'HC', 'AC', 'HF', 'AF', 'HY', 'AY', 'HR', 'AR']:
+                stats[f"Total{col}"] = home_matches[col].sum() + away_matches[col].sum()
+                stats[f"PerGame{col}"] = stats[f"Total{col}"] / stats['MatchesPlayed'] if stats['MatchesPlayed'] > 0 else 0
+
+            teams_stats.append(stats)
+
+        standings_df = pd.DataFrame(teams_stats)
+
+        # Skip empty DataFrames
+        if standings_df.empty:
+            print(f"No data found for season {season}")
+            return
+
+        # Add Rank column based on Points (higher points = lower rank)
+        standings_df = standings_df.sort_values(by='Points', ascending=False).reset_index(drop=True)
+        standings_df['Rank'] = standings_df.index + 1
+
+        # Reorder columns to place TeamId and Rank as the first columns
+        columns_order = ['TeamId', 'Rank'] + [col for col in standings_df.columns if col not in ['TeamId', 'Rank']]
+        standings_df = standings_df[columns_order]
+        
+        standings_df = standings_df.sort_values(by='Points', ascending=False).reset_index(drop=True)
+        standings_path = os.path.join(STANDINGS_DIR, f"EPLStandings{season.replace('/', '-')}.csv")
+        standings_df.to_csv(standings_path, index=False)
+        print(f"Standings for season {season} saved to {standings_path}")
+    except Exception as e:
+        print(f"Error updating yearly standings for season {season_code}: {e}")
+
+createfinaldataset()

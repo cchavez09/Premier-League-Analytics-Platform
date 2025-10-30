@@ -5,60 +5,50 @@ const pool = require('../database');
 router.get("/:team/seasons", async (req, res) => {
   const { team } = req.params;
   try {
-    const result = await pool.query(
-      `SELECT DISTINCT Season
-       FROM StandardizedMatches
-       WHERE HomeTeam = $1 OR AwayTeam = $1
-       ORDER BY Season DESC`,
-      [team]
-    );
-    // Convert "EPLS200506" → "2005-2006"
-    const formatted = result.rows.map(r => {
-      const digits = r.season.match(/\d+/)?.[0] || "";
-      const start = "20" + digits.slice(0, 2);
-      const end = "20" + digits.slice(2, 4);
-      return { season: `${start}-${end}`, code: r.season };
-    });
-    
+    const query = `
+      SELECT DISTINCT se.id, se.code
+      FROM Seasons se
+      JOIN StandardizedMatches sm ON sm.SeasonId = se.id
+      WHERE sm.HomeTeam ILIKE $1 OR sm.AwayTeam ILIKE $1
+      ORDER BY se.code DESC;
+    `;
+
+    const result = await pool.query(query, [`%${team}%`]);
+
     res.json(result.rows);
   } catch (err) {
-    console.error(err.message);
-    console.error("❌ SQL Error:", err);
+    console.error("❌ /:team/seasons error:", err.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-router.get("/:team/seasons/:season/matches", async (req, res) => {
-  const { team, season } = req.params;
-  try {
-    // Normalize: remove non-digits from season (e.g., "2021-2022" → "202122")
-    const seasonDigits = season.replace(/\D/g, "").slice(0, 6); 
+router.get("/:team/seasons/:seasonId/matches", async (req, res) => {
+  const { team, seasonId } = req.params;
 
-    // SQL Query to fetch matches and avoid repetitions
+  try {
     const query = `
-      SELECT DISTINCT
-        date AS "date",
-        hometeam AS "home_team",
-        awayteam AS "away_team",
-        fthg AS "fthg",
-        ftag AS "ftag",
-        ftr AS "ftr",
-        season AS "season"
-      FROM standardizedmatches
-      WHERE (hometeam ILIKE $1 OR awayteam ILIKE $1)
-      AND season ILIKE $2
-      ORDER BY date ASC;
+      SELECT
+        sm.Date AS date,
+        sm.HomeTeam AS home_team,
+        sm.AwayTeam AS away_team,
+        sm.FTHG AS fthg,
+        sm.FTAG AS ftag,
+        sm.FTR AS ftr,
+        se.code AS season
+      FROM StandardizedMatches sm
+      JOIN Seasons se ON sm.SeasonId = se.id
+      WHERE (sm.HomeTeam ILIKE $1 OR sm.AwayTeam ILIKE $1)
+      AND sm.SeasonId = $2
+      ORDER BY sm.Date ASC;
     `;
 
-    const values = [`%${team}%`, `%${seasonDigits}%`];
-    const result = await pool.query(query, values);
+    const values = [`%${team}%`, seasonId];
 
-    console.log("📊 SQL:", query, values);
-    console.log(`✅ Rows found: ${result.rows.length}`);
-    if (result.rows.length > 0) console.log("🎯 Example row:", result.rows[0]);
+    const result = await pool.query(query, [team, seasonId]);
 
     res.json(result.rows);
   } catch (err) {
-    console.error("❌ SQL Error:", err.message);
+    console.error("❌ /matches error:", err.message);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

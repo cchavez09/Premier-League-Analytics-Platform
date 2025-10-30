@@ -58,16 +58,17 @@ export default function HistoricalData() {
   ];
 
   const handleSelect = async (team) => {
+    console.log("✅ handleSelect fired with:", team);
     setSelectedTeam(team);
     setSelectedSeason("");
     setMatches([]);
     setLoadingSeasons(true);
 
     try {
-const response = await fetch(
-      `http://localhost:5000/api/teams/${team.name}/seasons`
-      );      
+      console.log("Fetching seasons for:", team.name);
+      const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
       const data = await response.json();
+      console.log("Fetched seasons:", data); // <---- IMPORTANT
       setSeasons(data);
     } catch (err) {
       console.error("Error fetching seasons:", err);
@@ -77,16 +78,16 @@ const response = await fetch(
   };
 
   // 🆕 Fetch matches when a season is chosen
-  const handleSeasonSelect = async (season) => {
-    if (!season) return;
+  const handleSeasonSelect = async (seasonId) => {
+    if (!seasonId) return;
 
-    setSelectedSeason(season);
+    setSelectedSeason(seasonId);
     setMatches([]);
     setLoadingMatches(true);
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${season}/matches`
+        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${seasonId}/matches`
       );
       const data = await response.json();
       console.log("Fetched matches:", data);
@@ -267,8 +268,8 @@ const response = await fetch(
                 >
                   <option value="">-- Select --</option>
                   {seasons.map((s, i) => (
-                    <option key={i} value={s.season}>
-                      {s.season}
+                    <option key={s.id} value={s.id}>
+                      {s.code}
                     </option>
                   ))}
                 </select>

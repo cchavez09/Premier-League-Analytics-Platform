@@ -16,9 +16,23 @@ conn = psycopg2.connect(
 cur = conn.cursor()
 cur.execute("SET datestyle TO 'DMY';")
 
-# --- Create the tables (only once) ---
+# ==========================================================
+# 🧹 RESET DATABASE STATE
+# ==========================================================
+print("🧹 Dropping old tables...")
+cur.execute("DROP TABLE IF EXISTS StandardizedMatches CASCADE;")
+cur.execute("DROP TABLE IF EXISTS TeamMatches CASCADE;")
+cur.execute("DROP TABLE IF EXISTS Standings CASCADE;")
+cur.execute("DROP TABLE IF EXISTS Seasons CASCADE;")
+conn.commit()
+print("✅ Tables dropped.")
+
+# ==========================================================
+# 🏗️ RECREATE TABLES CLEAN
+# ==========================================================
+
 cur.execute("""
-CREATE TABLE IF NOT EXISTS TeamMatches (
+CREATE TABLE TeamMatches (
     id SERIAL PRIMARY KEY,
     homeTeamID BIGINT,
     awayTeamID INT,
@@ -50,11 +64,12 @@ CREATE TABLE IF NOT EXISTS TeamMatches (
     B365A FLOAT
 );
 """)
- 
+
 cur.execute("""
-CREATE TABLE IF NOT EXISTS Standings (
+CREATE TABLE Standings (
     id SERIAL PRIMARY KEY,
     TeamId INT,
+    Rank INT,
     Team VARCHAR(100),
     Season VARCHAR(20),
     MatchesPlayed INT,
@@ -62,10 +77,9 @@ CREATE TABLE IF NOT EXISTS Standings (
     Draws INT,
     Losses INT,
     Points INT,
-    AvgB365H FLOAT,
-    AvgB365D FLOAT,
-    AvgB365A FLOAT,
-    AvgB365Overall FLOAT,
+    GoalsScored INT,
+    GoalsConceded INT,
+    GoalDifference INT,
     TotalHS INT,
     PerGameHS FLOAT,
     TotalAS INT,
@@ -89,12 +103,13 @@ CREATE TABLE IF NOT EXISTS Standings (
     TotalHR INT,
     PerGameHR FLOAT,
     TotalAR INT,
-    PerGameAR FLOAT
+    PerGameAR FLOAT,
+    SeasonId INT
 );
 """)
 
 cur.execute("""
-CREATE TABLE IF NOT EXISTS StandardizedMatches (
+CREATE TABLE StandardizedMatches (
     id SERIAL PRIMARY KEY,
     HomeTeamId BIGINT,
     AwayTeamId BIGINT,
@@ -124,11 +139,25 @@ CREATE TABLE IF NOT EXISTS StandardizedMatches (
     B365H FLOAT,
     B365D FLOAT,
     B365A FLOAT,
-    Season VARCHAR(20)
+    Season VARCHAR(20),
+    SeasonId INT
+);
+""")
+
+cur.execute("""
+CREATE TABLE Seasons (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(20) UNIQUE,
+    start_year INT,
+    end_year INT,
+    notes TEXT
 );
 """)
 conn.commit()
 
+# ==========================================================
+# 📁 Folder paths
+# ==========================================================
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "..", "files")
 
@@ -136,7 +165,10 @@ TEAMFILES_DIR = os.path.join(DATA_DIR, "TeamFiles")
 STANDINGS_DIR = os.path.join(DATA_DIR, "Standings")
 STANDARDIZED_DIR = os.path.join(DATA_DIR, "StandardizedSeasonMatches")
 
-# --- Helper: drop duplicate columns (case-insensitive) ---
+# ==========================================================
+# 🧽 Helpers
+# ==========================================================
+
 def drop_duplicate_columns_for_pg(df):
     seen = set()
     keep_cols = []
@@ -147,7 +179,6 @@ def drop_duplicate_columns_for_pg(df):
             seen.add(col_lower)
     return df[keep_cols]
 
-# --- Helper: load CSVs from folder into a table (with debugging) ---
 def load_folder_to_table(folder_path, table_name):
     if not os.path.exists(folder_path):
         print(f"❌ Folder not found: {folder_path}")
@@ -158,54 +189,149 @@ def load_folder_to_table(folder_path, table_name):
         if not file.endswith(".csv"):
             continue
 
-        file_path = os.path.join(folder_path, file)
-        print(f"\n→ Inserting {file} into {table_name}...")
-
-        try:
-            df = pd.read_csv(file_path)
-        except Exception as e:
-            print(f"❌ Failed to read {file}: {e}")
-            continue
+        print(f"→ Inserting: {file}")
+        df = pd.read_csv(os.path.join(folder_path, file))
 
         df.rename(columns={"AS": "AS_"}, inplace=True)
         df = drop_duplicate_columns_for_pg(df)
-
-        # 🧹 Clean data automatically
-        # Only drop based on these IDs if they exist in this file
-        for col_set in [["HomeTeamId", "AwayTeamId", "MatchID"], ["MatchID"]]:
-            existing = [c for c in col_set if c in df.columns]
-            if existing:
-                df.dropna(subset=existing, inplace=True)
-                break  # stop after using the most complete set
-
-        # Replace remaining NaN with None for psycopg2
         df = df.where(pd.notnull(df), None)
 
-
-        columns = ', '.join(df.columns)
+        cols = ', '.join(df.columns)
         placeholders = ', '.join(['%s'] * len(df.columns))
-        sql = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        sql = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
 
         for idx, row in df.iterrows():
             try:
                 cur.execute(sql, tuple(row))
             except Exception as e:
-                print(f"\n❌ ERROR in file: {file}")
-                print(f"   → Row number: {idx + 2}")  # +2 accounts for header + 0-index
-                print(f"   → Error: {e}")
-                print(f"   → Row data:\n{row}\n")
-                conn.rollback()  # undo partial inserts from this row
-                break  # stop this file, continue with others
+                print(f"❌ Error in {file}, row {idx+2}: {e}")
+                conn.rollback()
+                break
 
         conn.commit()
-        print(f"✅ Finished inserting {file}")
+        print(f"✅ Done: {file}")
 
-# --- Load all CSVs ---
+# ==========================================================
+# 🚚 Load Data
+# ==========================================================
 load_folder_to_table(TEAMFILES_DIR, "TeamMatches")
 load_folder_to_table(STANDINGS_DIR, "Standings")
 load_folder_to_table(STANDARDIZED_DIR, "StandardizedMatches")
 
-# --- Done ---
+# ==========================================================
+# 🧼 Normalize seasons, derive missing seasons from Date, and link SeasonId
+# ==========================================================
+print("\n🧼 Normalizing seasons and linking SeasonId...")
+
+# 0) Make sure helper columns exist where needed
+cur.execute("ALTER TABLE StandardizedMatches ADD COLUMN IF NOT EXISTS Season VARCHAR(20);")
+cur.execute("ALTER TABLE StandardizedMatches ADD COLUMN IF NOT EXISTS SeasonId INT;")
+cur.execute("ALTER TABLE Standings ADD COLUMN IF NOT EXISTS SeasonId INT;")
+cur.execute("ALTER TABLE TeamMatches ADD COLUMN IF NOT EXISTS Season VARCHAR(20);")
+cur.execute("ALTER TABLE TeamMatches ADD COLUMN IF NOT EXISTS SeasonId INT;")
+conn.commit()
+
+# 1) Fix bad season codes in Standings like '2019/2018' -> '2018/2019'
+#    Only touch rows that look like YYYY/YYYY and are reversed.
+cur.execute("""
+UPDATE Standings
+SET Season = CONCAT(
+      LEAST(LEFT(Season,4)::INT, RIGHT(Season,4)::INT),
+      '/',
+      GREATEST(LEFT(Season,4)::INT, RIGHT(Season,4)::INT)
+    )
+WHERE Season IS NOT NULL
+  AND Season ~ '^[0-9]{4}/[0-9]{4}$'
+  AND LEFT(Season,4)::INT > RIGHT(Season,4)::INT;
+""")
+conn.commit()
+
+# 2) Derive Season in StandardizedMatches from Date (if NULL or malformed)
+#    EPL season rule: Jul–Dec -> Y/Y+1, Jan–Jun -> (Y-1)/Y
+cur.execute("""
+UPDATE StandardizedMatches
+SET Season =
+    CASE
+      WHEN Date IS NULL THEN NULL
+      WHEN EXTRACT(MONTH FROM Date) >= 7
+        THEN CONCAT(EXTRACT(YEAR FROM Date)::INT, '/', (EXTRACT(YEAR FROM Date)::INT + 1))
+      ELSE CONCAT((EXTRACT(YEAR FROM Date)::INT - 1), '/', EXTRACT(YEAR FROM Date)::INT)
+    END
+WHERE Season IS NULL
+   OR Season !~ '^[0-9]{4}/[0-9]{4}$';
+""")
+conn.commit()
+
+# 3) Derive Season in TeamMatches from Date too (so TeamMatches is linkable)
+cur.execute("""
+UPDATE TeamMatches
+SET Season =
+    CASE
+      WHEN Date IS NULL THEN NULL
+      WHEN EXTRACT(MONTH FROM Date) >= 7
+        THEN CONCAT(EXTRACT(YEAR FROM Date)::INT, '/', (EXTRACT(YEAR FROM Date)::INT + 1))
+      ELSE CONCAT((EXTRACT(YEAR FROM Date)::INT - 1), '/', EXTRACT(YEAR FROM Date)::INT)
+    END
+WHERE Season IS NULL
+   OR Season !~ '^[0-9]{4}/[0-9]{4}$';
+""")
+conn.commit()
+
+# 4) Populate Seasons table from any distinct Season values we now have
+cur.execute("""
+INSERT INTO Seasons (code, start_year, end_year)
+SELECT code, LEFT(code,4)::INT, RIGHT(code,4)::INT
+FROM (
+  SELECT DISTINCT Season AS code FROM Standings WHERE Season IS NOT NULL
+  UNION
+  SELECT DISTINCT Season FROM StandardizedMatches WHERE Season IS NOT NULL
+  UNION
+  SELECT DISTINCT Season FROM TeamMatches WHERE Season IS NOT NULL
+) s
+WHERE code ~ '^[0-9]{4}/[0-9]{4}$'
+ON CONFLICT (code) DO NOTHING;
+""")
+conn.commit()
+
+# 5) Link SeasonId everywhere
+cur.execute("""
+UPDATE Standings s
+SET SeasonId = se.id
+FROM Seasons se
+WHERE s.Season = se.code
+  AND (s.SeasonId IS NULL OR s.SeasonId <> se.id);
+""")
+
+cur.execute("""
+UPDATE StandardizedMatches sm
+SET SeasonId = se.id
+FROM Seasons se
+WHERE sm.Season = se.code
+  AND (sm.SeasonId IS NULL OR sm.SeasonId <> se.id);
+""")
+
+cur.execute("""
+UPDATE TeamMatches tm
+SET SeasonId = se.id
+FROM Seasons se
+WHERE tm.Season = se.code
+  AND (tm.SeasonId IS NULL OR tm.SeasonId <> se.id);
+""")
+conn.commit()
+
+# 6) (Optional) Quick sanity logs
+cur.execute("SELECT COUNT(*) FROM StandardizedMatches WHERE Season IS NULL;")
+print("StandardizedMatches with NULL Season:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM StandardizedMatches WHERE SeasonId IS NULL;")
+print("StandardizedMatches with NULL SeasonId:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM Standings WHERE SeasonId IS NULL;")
+print("Standings with NULL SeasonId:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM TeamMatches WHERE SeasonId IS NULL;")
+print("TeamMatches with NULL SeasonId:", cur.fetchone()[0])
+
+# ==========================================================
+# ✅ Done
+# ==========================================================
 cur.close()
 conn.close()
-print("✅ All CSV data successfully loaded into PostgreSQL!")
+print("\n✅ All CSV data successfully loaded and linked to Seasons!")

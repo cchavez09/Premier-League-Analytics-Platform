@@ -31,12 +31,23 @@ print("✅ Tables dropped.")
 # 🏗️ RECREATE TABLES CLEAN
 # ==========================================================
 
+# --- Create Seasons table ---
 cur.execute("""
-CREATE TABLE TeamMatches (
+CREATE TABLE IF NOT EXISTS Seasons (
     id SERIAL PRIMARY KEY,
-    homeTeamID BIGINT,
-    awayTeamID INT,
-    MatchID VARCHAR(50),
+    code VARCHAR(20) UNIQUE,
+    start_year INT,
+    end_year INT,
+    notes TEXT
+);
+""")
+
+# --- Create StandardizedMatches (MatchID is the real primary key) ---
+cur.execute("""
+CREATE TABLE IF NOT EXISTS StandardizedMatches (
+    MatchID BIGINT PRIMARY KEY,
+    HomeTeamId BIGINT,
+    AwayTeamId BIGINT,
     Date DATE,
     HomeTeam VARCHAR(100),
     AwayTeam VARCHAR(100),
@@ -61,12 +72,59 @@ CREATE TABLE TeamMatches (
     AR INT,
     B365H FLOAT,
     B365D FLOAT,
-    B365A FLOAT
+    B365A FLOAT,
+    Season VARCHAR(20),
+    SeasonId INT REFERENCES Seasons(id)
 );
 """)
 
+# Create Teams table if not exists
 cur.execute("""
-CREATE TABLE Standings (
+CREATE TABLE IF NOT EXISTS Teams (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE
+);
+""")
+
+# --- Create TeamMatches (weak entity referencing StandardizedMatches) ---
+cur.execute("""
+CREATE TABLE IF NOT EXISTS TeamMatches (
+    MatchID BIGINT PRIMARY KEY REFERENCES StandardizedMatches(MatchID),
+    homeTeamID BIGINT,
+    awayTeamID INT,
+    Date DATE,
+    HomeTeam VARCHAR(100),
+    AwayTeam VARCHAR(100),
+    FTHG INT,
+    FTAG INT,
+    FTR VARCHAR(5),
+    HTHG INT,
+    HTAG INT,
+    HTR VARCHAR(5),
+    Referee VARCHAR(100),
+    HS INT,
+    AS_ INT,
+    HST INT,
+    AST INT,
+    HF INT,
+    AF INT,
+    HC INT,
+    AC INT,
+    HY INT,
+    AY INT,
+    HR INT,
+    AR INT,
+    B365H FLOAT,
+    B365D FLOAT,
+    B365A FLOAT,
+    Season VARCHAR(20),
+    SeasonId INT REFERENCES Seasons(id)
+);
+""")
+
+# --- Create Standings (league table summary per season/team) ---
+cur.execute("""
+CREATE TABLE IF NOT EXISTS Standings (
     id SERIAL PRIMARY KEY,
     TeamId INT,
     Rank INT,
@@ -104,55 +162,10 @@ CREATE TABLE Standings (
     PerGameHR FLOAT,
     TotalAR INT,
     PerGameAR FLOAT,
-    SeasonId INT
+    SeasonId INT REFERENCES Seasons(id)
 );
 """)
 
-cur.execute("""
-CREATE TABLE StandardizedMatches (
-    id SERIAL PRIMARY KEY,
-    HomeTeamId BIGINT,
-    AwayTeamId BIGINT,
-    MatchID BIGINT,
-    Date DATE,
-    HomeTeam VARCHAR(100),
-    AwayTeam VARCHAR(100),
-    FTHG INT,
-    FTAG INT,
-    FTR VARCHAR(5),
-    HTHG INT,
-    HTAG INT,
-    HTR VARCHAR(5),
-    Referee VARCHAR(100),
-    HS INT,
-    AS_ INT,
-    HST INT,
-    AST INT,
-    HF INT,
-    AF INT,
-    HC INT,
-    AC INT,
-    HY INT,
-    AY INT,
-    HR INT,
-    AR INT,
-    B365H FLOAT,
-    B365D FLOAT,
-    B365A FLOAT,
-    Season VARCHAR(20),
-    SeasonId INT
-);
-""")
-
-cur.execute("""
-CREATE TABLE Seasons (
-    id SERIAL PRIMARY KEY,
-    code VARCHAR(20) UNIQUE,
-    start_year INT,
-    end_year INT,
-    notes TEXT
-);
-""")
 conn.commit()
 
 # ==========================================================
@@ -193,7 +206,10 @@ def load_folder_to_table(folder_path, table_name):
         df = pd.read_csv(os.path.join(folder_path, file))
 
         df.rename(columns={"AS": "AS_"}, inplace=True)
-        df = drop_duplicate_columns_for_pg(df)
+        df = drop_duplicate_columns_for_pg(df)  
+        # Remove duplicate match rows inside TeamMatches CSVs
+        if table_name == "TeamMatches" and "MatchID" in df.columns:
+            df = df.drop_duplicates(subset=["MatchID"])
         df = df.where(pd.notnull(df), None)
 
         cols = ', '.join(df.columns)
@@ -201,22 +217,90 @@ def load_folder_to_table(folder_path, table_name):
         sql = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
 
         for idx, row in df.iterrows():
-            try:
-                cur.execute(sql, tuple(row))
-            except Exception as e:
-                print(f"❌ Error in {file}, row {idx+2}: {e}")
-                conn.rollback()
-                break
+          try:
+              cur.execute(sql, tuple(row))
+          except Exception as e:
+              # ✅ Skip duplicates automatically
+              if "duplicate key value violates unique constraint" in str(e):
+                  continue
+              print(f"\n❌ ERROR in file: {file}")
+              print(f"   → Row number: {idx + 2}")
+              print(f"   → Error: {e}")
+              print(f"   → Row data:\n{row}\n")
+              conn.rollback()
+              conn.commit()
+              break
 
         conn.commit()
         print(f"✅ Done: {file}")
-
 # ==========================================================
 # 🚚 Load Data
 # ==========================================================
-load_folder_to_table(TEAMFILES_DIR, "TeamMatches")
-load_folder_to_table(STANDINGS_DIR, "Standings")
+# --- Load Standardized match data first (this defines MatchID) ---
 load_folder_to_table(STANDARDIZED_DIR, "StandardizedMatches")
+
+# --- Then load the TeamMatches (which references MatchID) ---
+load_folder_to_table(TEAMFILES_DIR, "TeamMatches")
+
+# --- Finally load Standings ---
+load_folder_to_table(STANDINGS_DIR, "Standings")
+
+# ==========================================================
+# 🏗️ Build & Assign Team IDs
+# ==========================================================
+print("\n🏗️ Populating Teams table from StandardizedMatches...")
+
+cur.execute("""
+INSERT INTO Teams (name)
+SELECT DISTINCT TRIM(HomeTeam)
+FROM StandardizedMatches
+WHERE HomeTeam IS NOT NULL
+ON CONFLICT (name) DO NOTHING;
+""")
+
+cur.execute("""
+INSERT INTO Teams (name)
+SELECT DISTINCT TRIM(AwayTeam)
+FROM StandardizedMatches
+WHERE AwayTeam IS NOT NULL
+ON CONFLICT (name) DO NOTHING;
+""")
+
+conn.commit()
+print("✅ Teams inserted")
+
+print("\n🔗 Assigning TeamId to StandardizedMatches and TeamMatches...")
+
+cur.execute("""
+UPDATE StandardizedMatches sm
+SET HomeTeamId = t.id
+FROM Teams t
+WHERE sm.HomeTeam = t.name;
+""")
+
+cur.execute("""
+UPDATE StandardizedMatches sm
+SET AwayTeamId = t.id
+FROM Teams t
+WHERE sm.AwayTeam = t.name;
+""")
+
+cur.execute("""
+UPDATE TeamMatches tm
+SET HomeTeamId = t.id
+FROM Teams t
+WHERE tm.HomeTeam = t.name;
+""")
+
+cur.execute("""
+UPDATE TeamMatches tm
+SET AwayTeamId = t.id
+FROM Teams t
+WHERE tm.AwayTeam = t.name;
+""")
+
+conn.commit()
+print("✅ TeamIds assigned successfully")
 
 # ==========================================================
 # 🧼 Normalize seasons, derive missing seasons from Date, and link SeasonId
@@ -231,8 +315,7 @@ cur.execute("ALTER TABLE TeamMatches ADD COLUMN IF NOT EXISTS Season VARCHAR(20)
 cur.execute("ALTER TABLE TeamMatches ADD COLUMN IF NOT EXISTS SeasonId INT;")
 conn.commit()
 
-# 1) Fix bad season codes in Standings like '2019/2018' -> '2018/2019'
-#    Only touch rows that look like YYYY/YYYY and are reversed.
+# 1) Fix reversed season formatting '2019/2018' → '2018/2019'
 cur.execute("""
 UPDATE Standings
 SET Season = CONCAT(
@@ -246,8 +329,7 @@ WHERE Season IS NOT NULL
 """)
 conn.commit()
 
-# 2) Derive Season in StandardizedMatches from Date (if NULL or malformed)
-#    EPL season rule: Jul–Dec -> Y/Y+1, Jan–Jun -> (Y-1)/Y
+# 2) Derive Season for StandardizedMatches
 cur.execute("""
 UPDATE StandardizedMatches
 SET Season =
@@ -262,7 +344,7 @@ WHERE Season IS NULL
 """)
 conn.commit()
 
-# 3) Derive Season in TeamMatches from Date too (so TeamMatches is linkable)
+# 3) Derive Season for TeamMatches
 cur.execute("""
 UPDATE TeamMatches
 SET Season =
@@ -277,7 +359,7 @@ WHERE Season IS NULL
 """)
 conn.commit()
 
-# 4) Populate Seasons table from any distinct Season values we now have
+# 4) Insert Seasons into Season table
 cur.execute("""
 INSERT INTO Seasons (code, start_year, end_year)
 SELECT code, LEFT(code,4)::INT, RIGHT(code,4)::INT
@@ -298,40 +380,28 @@ cur.execute("""
 UPDATE Standings s
 SET SeasonId = se.id
 FROM Seasons se
-WHERE s.Season = se.code
-  AND (s.SeasonId IS NULL OR s.SeasonId <> se.id);
+WHERE s.Season = se.code;
 """)
 
 cur.execute("""
 UPDATE StandardizedMatches sm
 SET SeasonId = se.id
 FROM Seasons se
-WHERE sm.Season = se.code
-  AND (sm.SeasonId IS NULL OR sm.SeasonId <> se.id);
+WHERE sm.Season = se.code;
 """)
 
 cur.execute("""
 UPDATE TeamMatches tm
 SET SeasonId = se.id
 FROM Seasons se
-WHERE tm.Season = se.code
-  AND (tm.SeasonId IS NULL OR tm.SeasonId <> se.id);
+WHERE tm.Season = se.code;
 """)
 conn.commit()
 
-# 6) (Optional) Quick sanity logs
-cur.execute("SELECT COUNT(*) FROM StandardizedMatches WHERE Season IS NULL;")
-print("StandardizedMatches with NULL Season:", cur.fetchone()[0])
+# 6) Sanity checks
 cur.execute("SELECT COUNT(*) FROM StandardizedMatches WHERE SeasonId IS NULL;")
-print("StandardizedMatches with NULL SeasonId:", cur.fetchone()[0])
-cur.execute("SELECT COUNT(*) FROM Standings WHERE SeasonId IS NULL;")
-print("Standings with NULL SeasonId:", cur.fetchone()[0])
+print("StandardizedMatches missing SeasonId:", cur.fetchone()[0])
 cur.execute("SELECT COUNT(*) FROM TeamMatches WHERE SeasonId IS NULL;")
-print("TeamMatches with NULL SeasonId:", cur.fetchone()[0])
-
-# ==========================================================
-# ✅ Done
-# ==========================================================
-cur.close()
-conn.close()
-print("\n✅ All CSV data successfully loaded and linked to Seasons!")
+print("TeamMatches missing SeasonId:", cur.fetchone()[0])
+cur.execute("SELECT COUNT(*) FROM Standings WHERE SeasonId IS NULL;")
+print("Standings missing SeasonId:", cur.fetchone()[0])

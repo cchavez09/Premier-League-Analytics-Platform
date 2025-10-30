@@ -25,7 +25,7 @@ export default function HistoricalData() {
     { name: "Leicester City", stadium: "King Power Stadium, Leicester" },
     { name: "Liverpool", stadium: "Anfield, Liverpool" },
     { name: "Luton Town", stadium: "Kenilworth Road, Luton" },
-    { name: "Manchester City", stadium: "Etihad Stadium, Manchester" },
+    { name: "Man City", stadium: "Etihad Stadium, Manchester" },
     { name: "Manchester United", stadium: "Old Trafford, Manchester" },
     { name: "Middlesbrough", stadium: "Riverside Stadium, Middlesbrough" },
     { name: "Newcastle United", stadium: "St James’ Park, Newcastle" },
@@ -78,10 +78,12 @@ export default function HistoricalData() {
   };
 
   // 🆕 Fetch matches when a season is chosen
-  const handleSeasonSelect = async (seasonId) => {
-    if (!seasonId) return;
+  const handleSeasonSelect = async (value) => {
+    if (!value) return;
 
-    setSelectedSeason(seasonId);
+    const [seasonId, seasonCode] = value.split("|");
+
+    setSelectedSeason(seasonCode); // store display text like "2018/2019"
     setMatches([]);
     setLoadingMatches(true);
 
@@ -98,6 +100,7 @@ export default function HistoricalData() {
 
     setLoadingMatches(false);
   };
+
 
   const handleReset = () => {
     setSelectedTeam(null);
@@ -268,7 +271,7 @@ export default function HistoricalData() {
                 >
                   <option value="">-- Select --</option>
                   {seasons.map((s, i) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={`${s.id}|${s.code}`}>
                       {s.code}
                     </option>
                   ))}

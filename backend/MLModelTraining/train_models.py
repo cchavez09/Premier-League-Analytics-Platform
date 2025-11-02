@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 class EnsembleModelTrainer:
     def __init__(self, data_dir='data/files/MLData'):
         self.data_dir = Path(data_dir)
-        self.model_dir = Path('data/files/MLModelTraining/models')
+        self.model_dir = Path('data/files/MLModels')
         self.model_dir.mkdir(parents=True, exist_ok=True)
         self.min_accuracy = 0.90
         self.min_f1_score = 0.90

@@ -5,9 +5,11 @@ export default function Home() {
   const [upcoming, setUpcoming] = useState([]);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [corsError, setCorsError] = useState(false);
 
-  const API_KEY = "b881953db2474a8db5a9349f08181c0b";
-  const PROXY = "https://cors-anywhere.herokuapp.com/";
+  // ✅ Import API key from .env (Vite syntax)
+const API_KEY = process.env.REACT_APP_HOME_API_KEY; 
+ const PROXY = "https://cors-anywhere.herokuapp.com/";
 
   // === Fetch Premier League Table ===
   useEffect(() => {
@@ -17,43 +19,48 @@ export default function Home() {
           `${PROXY}https://api.football-data.org/v4/competitions/PL/standings`,
           { headers: { "X-Auth-Token": API_KEY } }
         );
+        if (!response.ok) throw new Error("CORS or network error");
         const data = await response.json();
         setTable(data.standings?.[0]?.table || []);
       } catch (err) {
         console.error("Error fetching table:", err);
+        setCorsError(true);
       } finally {
         setLoading(false);
       }
     }
     fetchPLTable();
-  }, []);
+  }, [API_KEY]);
 
   // === Fetch Upcoming & Recent Matches ===
   useEffect(() => {
     async function fetchMatches() {
       try {
-        // Upcoming
         const upcomingRes = await fetch(
           `${PROXY}https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED`,
           { headers: { "X-Auth-Token": API_KEY } }
         );
-        const upcomingData = await upcomingRes.json();
-        setUpcoming(upcomingData.matches.slice(0, 5));
-
-        // Recent
         const recentRes = await fetch(
           `${PROXY}https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED`,
           { headers: { "X-Auth-Token": API_KEY } }
         );
+
+        if (!upcomingRes.ok || !recentRes.ok)
+          throw new Error("CORS or network error");
+
+        const upcomingData = await upcomingRes.json();
         const recentData = await recentRes.json();
+
+        setUpcoming(upcomingData.matches.slice(0, 5));
         const lastFive = recentData.matches.slice(-5).reverse();
         setRecent(lastFive);
       } catch (err) {
         console.error("Error fetching matches:", err);
+        setCorsError(true);
       }
     }
     fetchMatches();
-  }, []);
+  }, [API_KEY]);
 
   const predictions = [
     { team: "Liverpool", percent: 78 },
@@ -61,8 +68,52 @@ export default function Home() {
     { team: "Arsenal", percent: 62 },
   ];
 
-  const getResultColor = (result) =>
-    result === "WIN" ? "#00FF87" : result === "DRAW" ? "#6B7280" : "#DC2626";
+  const openCorsDemo = () => {
+    window.open("https://cors-anywhere.herokuapp.com/corsdemo", "_blank");
+  };
+
+  if (corsError) {
+    return (
+      <div
+        style={{
+          backgroundColor: "#0D1117",
+          color: "#E5E7EB",
+          minHeight: "100vh",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          textAlign: "center",
+          fontFamily: "'Inter', sans-serif",
+          padding: "2rem",
+          boxSizing: "border-box",
+        }}
+      >
+        <h2 style={{ color: "#FF4D4D" }}>⚠️ Request for Temporary Access</h2>
+        <p style={{ color: "#9CA3AF", maxWidth: "480px", marginBottom: "1rem" }}>
+          This app uses <b>cors-anywhere.herokuapp.com</b> to fetch live Premier
+          League data. Please click below to request temporary access.
+        </p>
+        <button
+          onClick={openCorsDemo}
+          style={{
+            backgroundColor: "#00FF87",
+            color: "#0D1117",
+            border: "none",
+            padding: "0.7rem 1.5rem",
+            borderRadius: "8px",
+            fontWeight: "600",
+            cursor: "pointer",
+            fontSize: "1rem",
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = "#00cc6f")}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = "#00FF87")}
+        >
+          Request Temporary Access
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -70,15 +121,13 @@ export default function Home() {
         backgroundColor: "#0D1117",
         color: "#E5E7EB",
         minHeight: "100vh",
-        width: "100vw",
         marginLeft: "250px",
-        padding: "2rem 3rem",
-        boxSizing: "border-box",
+        padding: "2rem",
         fontFamily: "'Inter', sans-serif",
         overflowX: "hidden",
       }}
     >
-      {/* Header */}
+      {/* === Header === */}
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: "700" }}>
           Dashboard
@@ -88,21 +137,26 @@ export default function Home() {
         </p>
       </div>
 
-      {/* GRID */}
+      {/* === GRID LAYOUT === */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gridTemplateRows: "repeat(2, auto)",
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap: "2rem",
+          justifyItems: "center",
+          alignItems: "start",
         }}
       >
-        {/* === League Table === */}
+        {/* === League Table (Only scrollable one) === */}
         <div
           style={{
             backgroundColor: "#111827",
             borderRadius: "12px",
             padding: "1.5rem",
+            maxHeight: "400px",
+            overflowY: "auto",
+            overflowX: "hidden",
+            width: "95%",
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>League Table</h3>
@@ -185,12 +239,14 @@ export default function Home() {
           )}
         </div>
 
-        {/* === Recent Matches (Live) === */}
+        {/* === Recent Matches === */}
         <div
           style={{
             backgroundColor: "#111827",
             borderRadius: "12px",
             padding: "1.5rem",
+            height: "400px",
+            width: "95%",
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>Recent Matches</h3>
@@ -207,7 +263,6 @@ export default function Home() {
                   marginBottom: "0.7rem",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center",
                 }}
               >
                 <span>
@@ -221,12 +276,14 @@ export default function Home() {
           )}
         </div>
 
-        {/* === Upcoming Fixtures (Live) === */}
+        {/* === Upcoming Fixtures === */}
         <div
           style={{
             backgroundColor: "#111827",
             borderRadius: "12px",
             padding: "1.5rem",
+            height: "400px",
+            width: "95%",
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>
@@ -274,12 +331,14 @@ export default function Home() {
           )}
         </div>
 
-        {/* === Predictions (Static) === */}
+        {/* === Predictions === */}
         <div
           style={{
             backgroundColor: "#111827",
             borderRadius: "12px",
             padding: "1.5rem",
+            height: "400px",
+            width: "95%",
           }}
         >
           <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>

@@ -2,24 +2,33 @@ import React, { useState } from "react";
 
 export default function HistoricalData() {
   const [selectedTeam, setSelectedTeam] = useState(null);
-  const [seasons, setSeasons] = useState([]); // 🆕 list of seasons for that team
+  const [seasons, setSeasons] = useState([]);
   const [loadingSeasons, setLoadingSeasons] = useState(false);
   const [loadingMatches, setLoadingMatches] = useState(false);
-  const [selectedSeason, setSelectedSeason] = useState(""); // 🆕 which season user picked
-  const [matches, setMatches] = useState([]); // 🆕 holds all matc
+  const [selectedSeason, setSelectedSeason] = useState("");
+  const [matches, setMatches] = useState([]);
 
-  // === List of 44 Premier League teams (with stadiums for demo) ===
+  // === Premier League teams (sorted alphabetically) ===
   const teams = [
     { name: "Arsenal", stadium: "Emirates Stadium, London" },
     { name: "Aston Villa", stadium: "Villa Park, Birmingham" },
+    { name: "Blackburn Rovers", stadium: "Ewood Park, Blackburn" },
+    { name: "Blackpool", stadium: "Bloomfield Road, Blackpool" },
+    { name: "Bolton Wanderers", stadium: "University of Bolton Stadium" },
     { name: "Bournemouth", stadium: "Vitality Stadium, Bournemouth" },
     { name: "Brentford", stadium: "Gtech Community Stadium, London" },
     { name: "Brighton", stadium: "Amex Stadium, Brighton" },
     { name: "Burnley", stadium: "Turf Moor, Burnley" },
+    { name: "Cardiff City", stadium: "Cardiff City Stadium, Cardiff" },
+    { name: "Charlton Athletic", stadium: "The Valley, London" },
     { name: "Chelsea", stadium: "Stamford Bridge, London" },
+    { name: "Coventry City", stadium: "Coventry Building Society Arena" },
     { name: "Crystal Palace", stadium: "Selhurst Park, London" },
+    { name: "Derby County", stadium: "Pride Park, Derby" },
     { name: "Everton", stadium: "Goodison Park, Liverpool" },
     { name: "Fulham", stadium: "Craven Cottage, London" },
+    { name: "Huddersfield Town", stadium: "John Smith’s Stadium, Huddersfield" },
+    { name: "Hull City", stadium: "MKM Stadium, Hull" },
     { name: "Ipswich Town", stadium: "Portman Road, Ipswich" },
     { name: "Leeds United", stadium: "Elland Road, Leeds" },
     { name: "Leicester City", stadium: "King Power Stadium, Leicester" },
@@ -46,29 +55,18 @@ export default function HistoricalData() {
     { name: "West Ham United", stadium: "London Stadium, London" },
     { name: "Wigan Athletic", stadium: "DW Stadium, Wigan" },
     { name: "Wolverhampton Wanderers", stadium: "Molineux Stadium, Wolverhampton" },
-    { name: "Coventry City", stadium: "Coventry Building Society Arena" },
-    { name: "Hull City", stadium: "MKM Stadium, Hull" },
-    { name: "Derby County", stadium: "Pride Park, Derby" },
-    { name: "Charlton Athletic", stadium: "The Valley, London" },
-    { name: "Blackburn Rovers", stadium: "Ewood Park, Blackburn" },
-    { name: "Bolton Wanderers", stadium: "University of Bolton Stadium" },
-    { name: "Cardiff City", stadium: "Cardiff City Stadium, Cardiff" },
-    { name: "Huddersfield Town", stadium: "John Smith’s Stadium, Huddersfield" },
-    { name: "Blackpool", stadium: "Bloomfield Road, Blackpool" },
-  ];
+  ].sort((a, b) => a.name.localeCompare(b.name));
 
+  // === Select Team ===
   const handleSelect = async (team) => {
-    console.log("✅ handleSelect fired with:", team);
     setSelectedTeam(team);
     setSelectedSeason("");
     setMatches([]);
     setLoadingSeasons(true);
 
     try {
-      console.log("Fetching seasons for:", team.name);
       const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
       const data = await response.json();
-      console.log("Fetched seasons:", data); // <---- IMPORTANT
       setSeasons(data);
     } catch (err) {
       console.error("Error fetching seasons:", err);
@@ -77,13 +75,12 @@ export default function HistoricalData() {
     setLoadingSeasons(false);
   };
 
-  // 🆕 Fetch matches when a season is chosen
+  // === Select Season ===
   const handleSeasonSelect = async (value) => {
     if (!value) return;
-
     const [seasonId, seasonCode] = value.split("|");
 
-    setSelectedSeason(seasonCode); // store display text like "2018/2019"
+    setSelectedSeason(seasonCode);
     setMatches([]);
     setLoadingMatches(true);
 
@@ -92,7 +89,6 @@ export default function HistoricalData() {
         `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${seasonId}/matches`
       );
       const data = await response.json();
-      console.log("Fetched matches:", data);
       setMatches(data);
     } catch (err) {
       console.error("Error fetching matches:", err);
@@ -101,7 +97,7 @@ export default function HistoricalData() {
     setLoadingMatches(false);
   };
 
-
+  // === Reset back to all teams ===
   const handleReset = () => {
     setSelectedTeam(null);
     setSeasons([]);
@@ -118,11 +114,9 @@ export default function HistoricalData() {
         marginLeft: "250px",
         padding: "2rem 3rem",
         fontFamily: "'Inter', sans-serif",
-        position: "relative",
-        overflow: "hidden",
       }}
     >
-      {/* Header */}
+      {/* ===== HEADER ===== */}
       <div
         style={{
           display: "flex",
@@ -130,7 +124,7 @@ export default function HistoricalData() {
           alignItems: "center",
         }}
       >
-        <h1 style={{ margin: 0 }}>Historical Team Data</h1>
+        <h1 style={{ margin: 0, color: "#00FF87" }}>Historical Team Data</h1>
         {selectedTeam && (
           <button
             onClick={handleReset}
@@ -152,13 +146,13 @@ export default function HistoricalData() {
         )}
       </div>
 
-      {/* === Grid View === */}
+      {/* ===== GRID VIEW ===== */}
       {!selectedTeam ? (
         <div
           style={{
             marginTop: "2rem",
             display: "grid",
-            gridTemplateColumns: "repeat(4, 1fr)", // ✅ 4 cards per row
+            gridTemplateColumns: "repeat(4, 1fr)",
             gap: "1.5rem",
           }}
         >
@@ -181,7 +175,6 @@ export default function HistoricalData() {
                 (e.currentTarget.style.backgroundColor = "#111827")
               }
             >
-              {/* Placeholder logo circle */}
               <div
                 style={{
                   width: "45px",
@@ -192,13 +185,7 @@ export default function HistoricalData() {
                   opacity: 0.9,
                 }}
               ></div>
-
-              {/* Team title */}
-              <h3 style={{ margin: "0.2rem 0", fontSize: "1.05rem" }}>
-                {team.name}
-              </h3>
-
-              {/* Description */}
+              <h3 style={{ margin: "0.2rem 0", fontSize: "1.05rem" }}>{team.name}</h3>
               <p
                 style={{
                   fontSize: "0.85rem",
@@ -216,7 +203,7 @@ export default function HistoricalData() {
           ))}
         </div>
       ) : (
-        // === Selected team view ===
+        // ===== SELECTED TEAM VIEW =====
         <div
           style={{
             display: "flex",
@@ -235,6 +222,7 @@ export default function HistoricalData() {
               transform: "scale(1.05)",
               transition: "transform 0.4s ease",
               maxWidth: "600px",
+              width: "100%",
             }}
           >
             <div
@@ -248,6 +236,7 @@ export default function HistoricalData() {
             ></div>
             <h2 style={{ marginBottom: "0.5rem" }}>{selectedTeam.name}</h2>
             <p style={{ color: "#9CA3AF" }}>{selectedTeam.stadium}</p>
+
             {loadingSeasons ? (
               <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>Loading seasons...</p>
             ) : seasons.length > 0 ? (
@@ -270,7 +259,7 @@ export default function HistoricalData() {
                   }}
                 >
                   <option value="">-- Select --</option>
-                  {seasons.map((s, i) => (
+                  {seasons.map((s) => (
                     <option key={s.id} value={`${s.id}|${s.code}`}>
                       {s.code}
                     </option>
@@ -283,7 +272,7 @@ export default function HistoricalData() {
               </p>
             )}
 
-            {/* Matches Section */}
+            {/* ===== MATCHES TABLE ===== */}
             {loadingMatches && <p style={{ color: "#9CA3AF" }}>Loading matches...</p>}
 
             {selectedSeason && matches.length > 0 && !loadingMatches && (
@@ -291,7 +280,6 @@ export default function HistoricalData() {
                 <h3 style={{ color: "#00FF87", textAlign: "center" }}>
                   {selectedTeam.name} – {selectedSeason} Matches
                 </h3>
-
                 <table
                   style={{
                     width: "100%",
@@ -313,15 +301,11 @@ export default function HistoricalData() {
                     {matches.map((m, idx) => {
                       const isHome = m.home_team === selectedTeam.name;
                       let resultLabel = "";
-
-                      if (m.ftr === "D") {
-                        resultLabel = "Draw";
-                      } else if ((m.ftr === "H" && isHome) || (m.ftr === "A" && !isHome)) {
+                      if (m.ftr === "D") resultLabel = "Draw";
+                      else if ((m.ftr === "H" && isHome) || (m.ftr === "A" && !isHome))
                         resultLabel = "Win";
-                      } else {
-                        resultLabel = "Loss";
-                      }
-                      
+                      else resultLabel = "Loss";
+
                       return (
                         <tr
                           key={idx}
@@ -329,7 +313,6 @@ export default function HistoricalData() {
                             backgroundColor: idx % 2 === 0 ? "#0F172A" : "#111827",
                           }}
                         >
-                          {/* Easier format to view Date */}
                           <td style={{ padding: "0.75rem" }}>
                             {new Date(m.date).toLocaleDateString("en-GB", {
                               day: "2-digit",
@@ -337,37 +320,25 @@ export default function HistoricalData() {
                               year: "numeric",
                             })}
                           </td>
-
-                          {/* Assign home team to home column */}   
-                          {/* Home Team */}
                           <td
                             style={{
                               padding: "0.75rem",
-                              fontWeight: "normal",
                               color: isHome ? "#00FF87" : "#E5E7EB",
                             }}
                           >
                             {m.home_team}
                           </td>
-                          
-                          {/* Assign away team to away column */}
-                          {/* Away Team */}
                           <td
                             style={{
                               padding: "0.75rem",
-                              fontWeight: "normal",
                               color: !isHome ? "#00FF87" : "#E5E7EB",
                             }}
                           >
                             {m.away_team}
                           </td>
-
-                          {/* Score */}
                           <td style={{ padding: "0.75rem" }}>
                             {`${m.fthg ?? 0} - ${m.ftag ?? 0}`}
                           </td>
-
-                          {/* Result */}
                           <td
                             style={{
                               padding: "0.75rem",
@@ -389,7 +360,6 @@ export default function HistoricalData() {
               </div>
             )}
 
-            {/* Empty message */}
             {selectedSeason && matches.length === 0 && !loadingMatches && (
               <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>
                 No match data found for {selectedSeason}.
@@ -398,8 +368,6 @@ export default function HistoricalData() {
           </div>
         </div>
       )}
-      
     </div>
   );
-  
 }

@@ -4,7 +4,7 @@ const Teams = () => {
   const [teams, setTeams] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/teams") // 👈 connects to your backend
+    fetch("http://localhost:5001/api/teams") // 👈 connects to your backend
       .then((res) => res.json())
       .then((data) => setTeams(data))
       .catch((err) => console.error("Error fetching teams:", err));

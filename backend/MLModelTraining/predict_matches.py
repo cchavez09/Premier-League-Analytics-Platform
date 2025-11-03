@@ -7,8 +7,9 @@ from typing import Dict, Tuple, Optional
 
 class CrossSeasonMatchPredictor:
     # Final variables for data and model paths
-    DATA_DIR = Path("data/files/StandardizedSeasonMatches")
-    MODEL_DIR = Path("data/files/MLModels")
+    BASE_DIR = Path(__file__).parent.parent.parent
+    DATA_DIR = BASE_DIR / "data" / "files" / "StandardizedSeasonMatches"
+    MODEL_DIR = BASE_DIR / "data" / "files" / "MLModels"
     MODEL_NAME = "historical_ensemble.pkl"
     SCALER_NAME = "historical_scaler.pkl"
     FEATURES_NAME = "historical_features.pkl"
@@ -93,12 +94,13 @@ class CrossSeasonMatchPredictor:
         """Load season data from CSV file, using cache if available"""
         if season in self.season_cache:
             return self.season_cache[season]
-
-        # Construct file path based on season format
-        if season == '2526':
-            season_file = self.DATA_DIR / "EPLS2526.csv"
+        if '/' in season:
+            years = season.split('/')
+            season_code = years[0][-2:] + years[1][-2:]
         else:
-            season_file = self.DATA_DIR / f"EPLS{season}.csv"
+            season_code = season
+        # Construct file path based on season format
+        season_file = self.DATA_DIR / f"EPLS{season_code}.csv"
 
         if not season_file.exists():
             raise FileNotFoundError(f"Season file not found: {season_file}")
@@ -260,7 +262,7 @@ class CrossSeasonMatchPredictor:
     def _prepare_features(self, home_stats: Dict, away_stats: Dict, home_h2h: int, away_h2h: int) -> np.ndarray:
         """Prepare feature vector for prediction"""
         # First, let's see what features the model expects
-        print(f"Model expects these features: {self.feature_names}")
+        #print(f"Model expects these features: {self.feature_names}")
 
         # Build features dictionary with all possible features
         features = {
@@ -355,36 +357,25 @@ class CrossSeasonMatchPredictor:
 
 
 if __name__ == "__main__":
-    predictor = CrossSeasonMatchPredictor()
+    import sys
+    import json
 
-    # Example 1: Historical vs Historical
-    result1 = predictor.predict_match(
-        home_team="Arsenal",
-        away_team="Chelsea",
-        home_season="0506",  # 2005-06 season
-        away_season="0607"   # 2006-07 season
-    )
+    if len(sys.argv) == 5:
+        home_team = sys.argv[1]
+        away_team = sys.argv[2]
+        home_season = sys.argv[3]
+        away_season = sys.argv[4]
 
-    print(f"\nHistorical Prediction:")
-    print(f"Match: {result1['home_team']} vs {result1['away_team']}")
-    print(f"Home Season: {result1['home_season']}, Away Season: {result1['away_season']}")
-    print(f"Prediction: {result1['prediction']}")
-    print(f"Probabilities: H: {result1['probabilities']['home_win']:.2%}, "
-          f"D: {result1['probabilities']['draw']:.2%}, "
-          f"A: {result1['probabilities']['away_win']:.2%}")
-
-    # Example 2: Current vs Historical
-    result2 = predictor.predict_match(
-        home_team="West Ham",
-        away_team="Arsenal",
-        home_season="2526",  # Current season
-        away_season="0506"   # 2010-11 season
-    )
-
-    print(f"\nCross-Season Prediction:")
-    print(f"Match: {result2['home_team']} vs {result2['away_team']}")
-    print(f"Home Season: {result2['home_season']}, Away Season: {result2['away_season']}")
-    print(f"Prediction: {result2['prediction']}")
-    print(f"Probabilities: H: {result2['probabilities']['home_win']:.2%}, "
-          f"D: {result2['probabilities']['draw']:.2%}, "
-          f"A: {result2['probabilities']['away_win']:.2%}")
+        try:
+            predictor = CrossSeasonMatchPredictor()
+            result = predictor.predict_match(
+                home_team=home_team,
+                away_team=away_team,
+                home_season=home_season,
+                away_season=away_season
+            )
+            # Output as JSON for Node.js to parse
+            print(json.dumps(result))
+        except Exception as e:
+            print(json.dumps({"error": str(e)}), file=sys.stderr)
+            sys.exit(1)

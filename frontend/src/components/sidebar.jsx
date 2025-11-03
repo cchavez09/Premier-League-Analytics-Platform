@@ -5,8 +5,6 @@ export default function Sidebar({ active = "Home", onSelect }) {
     { label: "Home", icon: "🏠" },
     { label: "Predictions", icon: "📈" },
     { label: "Historical Data", icon: "📜" },
-    { label: "Player Stats", icon: "👤" },
-    { label: "Simulations", icon: "📊" },
     { label: "Settings", icon: "⚙️" },
   ];
 

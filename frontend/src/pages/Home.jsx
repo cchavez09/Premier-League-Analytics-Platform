@@ -1,78 +1,61 @@
 import React, { useEffect, useState } from "react";
-
+ 
 export default function Home() {
   const [table, setTable] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [recent, setRecent] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [corsError, setCorsError] = useState(false);
-
-  // ✅ Import API key from .env (Vite syntax)
-const API_KEY = process.env.REACT_APP_HOME_API_KEY; 
- const PROXY = "https://cors-anywhere.herokuapp.com/";
-
-  // === Fetch Premier League Table ===
+  const [error, setError] = useState(false);
+ 
+  const BACKEND_URL = "http://localhost:5000";
+ 
+  // === Fetch League Table ===
   useEffect(() => {
-    async function fetchPLTable() {
+    async function fetchTable() {
       try {
-        const response = await fetch(
-          `${PROXY}https://api.football-data.org/v4/competitions/PL/standings`,
-          { headers: { "X-Auth-Token": API_KEY } }
-        );
-        if (!response.ok) throw new Error("CORS or network error");
-        const data = await response.json();
-        setTable(data.standings?.[0]?.table || []);
+        const res = await fetch(`${BACKEND_URL}/api/table`);
+        if (!res.ok) throw new Error("Failed to fetch table");
+        const data = await res.json();
+        setTable(data);
       } catch (err) {
         console.error("Error fetching table:", err);
-        setCorsError(true);
+        setError(true);
+      }
+    }
+    fetchTable();
+  }, []);
+ 
+  // === Fetch Matches (Recent & Upcoming) ===
+  useEffect(() => {
+    async function fetchMatches() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/live`);
+        if (!res.ok) throw new Error("Failed to fetch matches");
+        const data = await res.json();
+ 
+        const matches = data.matches || [];
+        const finished = matches.filter((m) => m.status === "FINISHED");
+        const scheduled = matches.filter((m) => m.status === "SCHEDULED");
+ 
+        setRecent(finished.slice(-5).reverse());
+        setUpcoming(scheduled.slice(0, 5));
+      } catch (err) {
+        console.error("Error fetching matches:", err);
+        setError(true);
       } finally {
         setLoading(false);
       }
     }
-    fetchPLTable();
-  }, [API_KEY]);
-
-  // === Fetch Upcoming & Recent Matches ===
-  useEffect(() => {
-    async function fetchMatches() {
-      try {
-        const upcomingRes = await fetch(
-          `${PROXY}https://api.football-data.org/v4/competitions/PL/matches?status=SCHEDULED`,
-          { headers: { "X-Auth-Token": API_KEY } }
-        );
-        const recentRes = await fetch(
-          `${PROXY}https://api.football-data.org/v4/competitions/PL/matches?status=FINISHED`,
-          { headers: { "X-Auth-Token": API_KEY } }
-        );
-
-        if (!upcomingRes.ok || !recentRes.ok)
-          throw new Error("CORS or network error");
-
-        const upcomingData = await upcomingRes.json();
-        const recentData = await recentRes.json();
-
-        setUpcoming(upcomingData.matches.slice(0, 5));
-        const lastFive = recentData.matches.slice(-5).reverse();
-        setRecent(lastFive);
-      } catch (err) {
-        console.error("Error fetching matches:", err);
-        setCorsError(true);
-      }
-    }
     fetchMatches();
-  }, [API_KEY]);
-
+  }, []);
+ 
   const predictions = [
     { team: "Liverpool", percent: 78 },
     { team: "Man City", percent: 65 },
     { team: "Arsenal", percent: 62 },
   ];
-
-  const openCorsDemo = () => {
-    window.open("https://cors-anywhere.herokuapp.com/corsdemo", "_blank");
-  };
-
-  if (corsError) {
+ 
+  if (error) {
     return (
       <div
         style={{
@@ -85,36 +68,17 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
           flexDirection: "column",
           textAlign: "center",
           fontFamily: "'Inter', sans-serif",
-          padding: "2rem",
-          boxSizing: "border-box",
         }}
       >
-        <h2 style={{ color: "#FF4D4D" }}>⚠️ Request for Temporary Access</h2>
-        <p style={{ color: "#9CA3AF", maxWidth: "480px", marginBottom: "1rem" }}>
-          This app uses <b>cors-anywhere.herokuapp.com</b> to fetch live Premier
-          League data. Please click below to request temporary access.
+        <h2 style={{ color: "#FF4D4D" }}>⚠️ Unable to load data</h2>
+        <p style={{ color: "#9CA3AF" }}>
+          Please ensure the backend is running on{" "}
+          <b>http://localhost:5000</b> and the API key in <b>pginfo.env</b> is valid.
         </p>
-        <button
-          onClick={openCorsDemo}
-          style={{
-            backgroundColor: "#00FF87",
-            color: "#0D1117",
-            border: "none",
-            padding: "0.7rem 1.5rem",
-            borderRadius: "8px",
-            fontWeight: "600",
-            cursor: "pointer",
-            fontSize: "1rem",
-          }}
-          onMouseEnter={(e) => (e.target.style.backgroundColor = "#00cc6f")}
-          onMouseLeave={(e) => (e.target.style.backgroundColor = "#00FF87")}
-        >
-          Request Temporary Access
-        </button>
       </div>
     );
   }
-
+ 
   return (
     <div
       style={{
@@ -136,7 +100,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
           Premier League 2024/25 Analytics
         </p>
       </div>
-
+ 
       {/* === GRID LAYOUT === */}
       <div
         style={{
@@ -147,7 +111,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
           alignItems: "start",
         }}
       >
-        {/* === League Table (Only scrollable one) === */}
+        {/* === League Table === */}
         <div
           style={{
             backgroundColor: "#111827",
@@ -155,12 +119,11 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             padding: "1.5rem",
             maxHeight: "400px",
             overflowY: "auto",
-            overflowX: "hidden",
             width: "95%",
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>League Table</h3>
-          {loading ? (
+          <h3>League Table</h3>
+          {table.length === 0 ? (
             <p style={{ color: "#9CA3AF" }}>Loading Premier League table...</p>
           ) : (
             <table
@@ -238,7 +201,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             </table>
           )}
         </div>
-
+ 
         {/* === Recent Matches === */}
         <div
           style={{
@@ -249,9 +212,9 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             width: "95%",
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>Recent Matches</h3>
+          <h3>Recent Matches</h3>
           {recent.length === 0 ? (
-            <p style={{ color: "#9CA3AF" }}>Loading recent matches...</p>
+            <p style={{ color: "#9CA3AF" }}>Loading...</p>
           ) : (
             recent.map((m, i) => (
               <div
@@ -275,7 +238,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             ))
           )}
         </div>
-
+ 
         {/* === Upcoming Fixtures === */}
         <div
           style={{
@@ -286,11 +249,9 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             width: "95%",
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>
-            Upcoming Fixtures
-          </h3>
+          <h3>Upcoming Fixtures</h3>
           {upcoming.length === 0 ? (
-            <p style={{ color: "#9CA3AF" }}>Loading upcoming fixtures...</p>
+            <p style={{ color: "#9CA3AF" }}>Loading...</p>
           ) : (
             upcoming.map((f, i) => (
               <div
@@ -330,7 +291,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             ))
           )}
         </div>
-
+ 
         {/* === Predictions === */}
         <div
           style={{
@@ -341,9 +302,7 @@ const API_KEY = process.env.REACT_APP_HOME_API_KEY;
             width: "95%",
           }}
         >
-          <h3 style={{ marginTop: 0, marginBottom: "1rem" }}>
-            Next Gameweek Predictions
-          </h3>
+          <h3>Next Gameweek Predictions</h3>
           {predictions.map((p) => (
             <div key={p.team} style={{ marginBottom: "1rem" }}>
               <div

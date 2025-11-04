@@ -1,104 +1,101 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config({ path: './pginfo.env' });
-
-console.log('🚀 Starting server...');
-console.log('📝 Environment:', {
-  DB_USER: process.env.DB_USER,
-  DB_HOST: process.env.DB_HOST,
-  DB_NAME: process.env.DB_NAME,
-  DB_PORT: process.env.DB_PORT,
-  PORT: process.env.PORT
-});
-
+// backend/server.js
+// =====================================================
+// FUTSTAT BACKEND SERVER
+// =====================================================
+const express = require("express");
+const cors = require("cors");
+const path = require("path");
+ 
+// ✅ Load environment variables from pginfo.env
+require("dotenv").config({ path: path.resolve(__dirname, "pginfo.env") });
+ 
+// ✅ Use native fetch (Node 18+ supports it natively)
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+ 
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-const pool = require('./database');
-
-// Make this synchronous to prevent early exit
-async function startServer() {
+ 
+// =====================================================
+// ROUTES IMPORTS (Team + Fixtures)
+// =====================================================
+const teamRoutes = require("./routes/teams");
+const fixtureRoutes = require("./routes/fixtures");
+ 
+app.use("/api/teams", teamRoutes);
+app.use("/api/fixtures", fixtureRoutes);
+ 
+// =====================================================
+// HEALTH CHECK
+// =====================================================
+app.get("/", (req, res) => {
+  res.send("✅ Futstat Backend is running ⚽");
+});
+ 
+// =====================================================
+// LIVE PREMIER LEAGUE DATA ROUTE
+// =====================================================
+app.get("/api/live", async (req, res) => {
   try {
-    console.log('🔌 Testing database connection...');
-    await pool.query('SELECT NOW()');
-    console.log('✅ Database connected successfully');
-
-    // Import routes
-    console.log('📦 Loading routes...');
-    const teamRoutes = require('./routes/teams');
-    const fixtureRoutes = require('./routes/fixtures');
-    const predictionsRoutes = require('./routes/predictions');
-
-    app.use('/api/teams', teamRoutes);
-    app.use('/api/fixtures', fixtureRoutes);
-    app.use('/api/predictions', predictionsRoutes);
-    console.log('✅ Routes loaded');
-
-    // Test endpoint
-    app.get('/api/test-db', async (req, res) => {
-      try {
-        const tables = await pool.query(`
-          SELECT table_name
-          FROM information_schema.tables
-          WHERE table_schema = 'public'
-        `);
-        const teams = await pool.query('SELECT COUNT(*) as count FROM "Teams"');
-        const matches = await pool.query('SELECT COUNT(*) as count FROM "StandardizedMatches"');
-        const seasons = await pool.query('SELECT COUNT(*) as count FROM "Seasons"');
-
-        res.json({
-          tables: tables.rows.map(r => r.table_name),
-          counts: {
-            teams: teams.rows[0].count,
-            matches: matches.rows[0].count,
-            seasons: seasons.rows[0].count
-          }
-        });
-      } catch (error) {
-        console.error('❌ Test DB error:', error);
-        res.status(500).json({ error: error.message });
+    console.log("📡 Fetching Premier League live data...");
+ 
+    const apiKey = process.env.HOME_API_KEY;
+    if (!apiKey) {
+      console.error("❌ Missing HOME_API_KEY in pginfo.env");
+      return res.status(500).json({ error: "Missing API key" });
+    }
+ 
+    const response = await fetch(
+      "https://api.football-data.org/v4/competitions/PL/matches",
+      {
+        headers: { "X-Auth-Token": apiKey },
       }
-    });
-
-    app.get('/', (req, res) => {
-      res.send('Soccer App Backend is running ⚽');
-    });
-
-    // Error handler
-    app.use((err, req, res, next) => {
-      console.error('❌ Error:', err);
-      res.status(500).json({ error: err.message });
-    });
-
-    const PORT = process.env.PORT || 5001;
-    const server = app.listen(PORT, () => {
-      console.log(`✅ Server running on http://localhost:${PORT}`);
-      console.log('🎯 Endpoints available:');
-      console.log(`   GET  http://localhost:${PORT}/`);
-      console.log(`   GET  http://localhost:${PORT}/api/test-db`);
-    });
-
-    // Prevent premature exit
-    process.stdin.resume();
-
-  } catch (error) {
-    console.error('❌ Fatal error during startup:', error);
-    process.exit(1);
+    );
+ 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("⚠️ API error:", response.status, errorText);
+      return res
+        .status(response.status)
+        .json({ error: "Failed to fetch Premier League data" });
+    }
+ 
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error("💥 Server Error fetching live PL data:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
-}
-
-// Global error handlers
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught exception:', err);
 });
-
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled rejection:', err);
+ 
+// =====================================================
+// SERVER STARTUP
+// =====================================================
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
-
-// Start the server
-startServer().catch(err => {
-  console.error('❌ Failed to start server:', err);
-  process.exit(1);
+ 
+ 
+// ===== LEAGUE TABLE =====
+app.get("/api/table", async (req, res) => {
+  try {
+    const response = await fetch(
+      "https://api.football-data.org/v4/competitions/PL/standings",
+      {
+        headers: { "X-Auth-Token": process.env.HOME_API_KEY },
+      }
+    );
+ 
+    if (!response.ok) {
+      return res.status(response.status).json({ error: "Failed to fetch standings" });
+    }
+ 
+    const data = await response.json();
+    res.json(data.standings?.[0]?.table || []);
+  } catch (err) {
+    console.error("Error fetching table:", err);
+    res.status(500).json({ error: "Server error fetching table" });
+  }
 });

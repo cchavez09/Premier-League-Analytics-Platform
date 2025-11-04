@@ -28,10 +28,16 @@ cd COMP-330-Group-Project
 
 Backend setup - 
 cd backend
+npm install 
+npm install pg
 pip install -r requirements.txt
+pip install pandas
+pip install psycopg2-binary
+npm install node-fetch@2
 
 Frontend setup -
 cd frontend
+npm install 
 npm install -r requirements.txt
 
 Database Setup- 

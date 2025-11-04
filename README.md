@@ -9,46 +9,69 @@ It combines predictive modeling, interactive charts, and team-by-team insights b
 
 # Tech Stack
 - **Frontend:** React.js  
-- **Backend:** Flask (Python)  
+- **Backend:** Node.js + Express  
 - **Database:** PostgreSQL  
-- **APIs:** Football data feeds (live scores, match stats, and fixtures)
+- **APIs:** Football data feeds (live scores, match stats, and fixtures). Link - "https://www.football-data.org/"
 
 # Project Structure
 frontend/     → React.js app (UI & dashboards)
-backend/      → Flask API for match data and predictions
+backend/      → Express API for match data and predictions
 data/         → Datasets and scripts for ETL and analysis
 docs/         → Documentation and reports
 
+# System Requirements
+- **Node.js:** v16 or higher  
+- **Python:** 3.8 or higher  
+- **PostgreSQL:** v12+  
+- **npm** or **yarn** package manager  
+
+
 # Setup Instructions
 
-# 1️⃣ Clone the Repository
+**This is a step-by-step format for the setup. Alternatively, you can run all installations automatically using the unified requirements.txt file located in the project root.**
+
+# 1️⃣ Clone the Repository - 
 ```bash
 git clone https://github.com/yourusername/COMP-330-Group-Project.git
 cd COMP-330-Group-Project
+pip install -r requirements.txt
 
 Backend setup - 
 cd backend
-npm install 
-npm install pg
-pip install -r requirements.txt
-pip install pandas
-pip install psycopg2-binary
-npm install node-fetch@2
+Create a file named pginfo.env: 
+HOME_API_KEY=your_football_data_api_key
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=futstat
+DB_USER=postgres
+DB_PASSWORD=your_password
+PORT=5001 || 5000  # change if 5000 is unavailable
+npm install
+npm run dev
 
 Frontend setup -
 cd frontend
+Create env file and add: REACT_APP_API_URL=http://localhost:5001
 npm install 
-npm install -r requirements.txt
+npm start
 
 Database Setup- 
 Create a new database named futstat
-Go into the folder cd data/scripts
-Run 1- pullAllData.py 2- createTableData.py
+cd data/scripts
+python pullAllData.py
+python createTableData.py
 Change your Database password in the env file. 
+
+# Environment Variables
+- **Backend:** `backend/pginfo.env`  
+- **Frontend:** `frontend/.env`  
+
+These files contain API keys, database credentials, and server URLs required for the app to run.  
+They are not included in the repo for security reasons.
 
 Run the app
 Frontend → http://localhost:3000
-Backend API → http://localhost:5000
+Backend API → http://localhost:5001
 ```
 
 # Features
@@ -56,14 +79,13 @@ Backend API → http://localhost:5000
 - **Match Predictions** – Predictive models analyze past performance to forecast outcomes. 
 - **Historical Team Data** – Explore season-by-season statistics for every team for last 25 years.
 - **Visual Dashboards** – Interactive charts and team comparisons.
-- **Fast & Lightweight** – Flask API with optimized PostgreSQL queries for quick responses.
+- **Fast & Lightweight** – Express API with optimized PostgreSQL queries for quick responses.
 
 # How It Works
-- The **Flask backend** retrieves match and team data from football APIs and the PostgreSQL database.  
+- The **Express backend** retrieves match and team data from football APIs and the PostgreSQL database.  
 - The **React frontend** fetches this data and displays it as tables, graphs, and predictions.  
 - The **data scripts** (`pullAllData.py`, `createTableData.py`) collect and structure CSV data into database tables.  
 - The **prediction engine** (inside backend) uses statistical models and historical trends to compute win probabilities.  
-
 
 # Contributors
 This project was developed as part of **COMP 330 – Software Engineering** at **Loyola University Chicago**.

@@ -65,7 +65,7 @@ export default function HistoricalData() {
     setLoadingSeasons(true);
 
     try {
-      const response = await fetch(`http://localhost:5001/api/teams/${team.name}/seasons`);
+      const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
       const data = await response.json();
       setSeasons(data);
     } catch (err) {

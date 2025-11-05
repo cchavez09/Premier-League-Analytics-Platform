@@ -29,6 +29,8 @@ docs/         → Documentation and reports
 # Setup Instructions
 
 **This is a step-by-step format for the setup. Alternatively, you can run all installations automatically using the unified requirements.txt file located in the project root.**
+**NOTE: If you are trying to run the application and port 5000 is unavailable because of a pre-existing process on your computer, then change it in the frontend files that reference the port as well as the backend ones.**
+
 
 # 1️⃣ Clone the Repository - 
 ```bash

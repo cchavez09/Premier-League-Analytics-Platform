@@ -58,7 +58,7 @@ npm install
 npm start
 
 Database Setup- 
-Create a new database named futstat
+Create a new database named soccerdata_db
 cd data/scripts
 python pullAllData.py
 python createTableData.py

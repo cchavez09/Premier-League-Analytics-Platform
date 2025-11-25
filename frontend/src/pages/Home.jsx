@@ -81,16 +81,14 @@ export default function Home() {
  
   return (
     <div
-      style={{
-        backgroundColor: "#0D1117",
-        color: "#E5E7EB",
-        minHeight: "100vh",
-        marginLeft: "250px",
-        padding: "2rem",
-        fontFamily: "'Inter', sans-serif",
-        overflowX: "hidden",
-      }}
-    >
+  style={{
+    backgroundColor: "#0D1117",
+    color: "#E5E7EB",
+    minHeight: "100vh",
+    padding: "2rem",
+    fontFamily: "'Inter', sans-serif",
+  }}
+>
       {/* === Header === */}
       <div style={{ marginBottom: "2rem" }}>
         <h1 style={{ margin: 0, fontSize: "2rem", fontWeight: "700" }}>

@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function Sidebar({ active = "Home", onSelect }) {
+export default function Sidebar({ active = "Home", onSelect, collapsed }) {
   const menuItems = [
     { label: "Home", icon: "🏠" },
     { label: "Predictions", icon: "📈" },
@@ -9,51 +9,60 @@ export default function Sidebar({ active = "Home", onSelect }) {
   ];
 
   return (
-    <div
+    <aside
       style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "250px",
+        width: collapsed ? "80px" : "250px",
         height: "100vh",
-        backgroundColor: "#0D1117",
+        background: "#0D1117",
         color: "#E5E7EB",
+        borderRight: "1px solid #1F2937",
+        padding: collapsed ? "1.5rem 0.5rem" : "1.5rem 1rem",
+        boxSizing: "border-box",
+        position: "fixed",
+        left: 0,
+        top: 0,
+        transition: "width 0.3s ease, padding 0.3s ease",
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        padding: "1.5rem 1rem",
-        boxSizing: "border-box",
-        borderRight: "1px solid #1F2937",
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       }}
     >
-      {/* Top Section */}
-      <div>
-        {/* Logo */}
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          marginBottom: "1.5rem",
+        }}
+      >
         <div
           style={{
+            width: collapsed ? "26px" : "30px",
+            height: collapsed ? "26px" : "30px",
+            background: "#00FF87",
+            borderRadius: "50%",
             display: "flex",
+            justifyContent: "center",
             alignItems: "center",
-            marginBottom: "2.5rem",
+            color: "#022c22",
+            fontWeight: 700,
+            fontSize: collapsed ? "0.85rem" : "1rem",
+            flexShrink: 0,
+            transition: "all 0.25s ease",
           }}
         >
-          <div
-            style={{
-              width: "14px",
-              height: "14px",
-              borderRadius: "50%",
-              backgroundColor: "#00FF87",
-              marginRight: "10px",
-            }}
-          ></div>
-          <div>
+          F
+        </div>
+
+        {!collapsed && (
+          <div style={{ overflow: "hidden" }}>
             <h2
               style={{
+                fontSize: "1.2rem",
+                fontWeight: 600,
                 margin: 0,
-                color: "#00FF87",
-                fontSize: "1.15rem",
-                fontWeight: "600",
-                letterSpacing: "0.5px",
+                color: "#E5E7EB",
               }}
             >
               FutStat
@@ -61,73 +70,105 @@ export default function Sidebar({ active = "Home", onSelect }) {
             <p
               style={{
                 margin: 0,
-                fontSize: "0.8rem",
+                marginTop: "0.15rem",
+                fontSize: "0.75rem",
                 color: "#9CA3AF",
               }}
             >
               Premier League Analytics
             </p>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Menu */}
-        <div>
-          {menuItems.map((item) => {
-            const isActive = active === item.label;
-            return (
-              <div
-                key={item.label}
-                onClick={() => onSelect(item.label)} // ✅ click changes page
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "0.7rem 1rem",
-                  marginBottom: "0.5rem",
-                  borderRadius: "10px",
-                  backgroundColor: isActive ? "#0F3A28" : "transparent",
-                  color: isActive ? "#00FF87" : "#D1D5DB",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-in-out",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.backgroundColor = "#1F2937";
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive)
-                    e.currentTarget.style.backgroundColor = "transparent";
-                }}
-              >
-                <span style={{ fontSize: "1rem" }}>{item.icon}</span>
+      {/* Divider */}
+      <div
+        style={{
+          height: "1px",
+          width: "100%",
+          background: "#1F2937",
+          marginBottom: "1.25rem",
+        }}
+      />
+
+      {/* Menu */}
+      <nav style={{ flexGrow: 1 }}>
+        {menuItems.map((item) => {
+          const isActive = active === item.label;
+
+          return (
+            <button
+              key={item.label}
+              onClick={() => onSelect && onSelect(item.label)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: collapsed ? "0.65rem 0.5rem" : "0.7rem 0.9rem",
+                background: isActive ? "#0F3A28" : "transparent",
+                color: isActive ? "#00FF87" : "#D1D5DB",
+                border: "none",
+                textAlign: "left",
+                borderRadius: "10px",
+                cursor: "pointer",
+                marginBottom: "0.45rem",
+                transition: "background 0.2s ease, color 0.2s ease",
+              }}
+            >
+              <span style={{ fontSize: "1.05rem" }}>{item.icon}</span>
+
+              {!collapsed && (
                 <span
                   style={{
                     fontSize: "0.95rem",
-                    userSelect: "none",
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                   }}
                 >
                   {item.label}
                 </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-      {/* Footer */}
-      <div
+      {/* Floating collapse toggle */}
+      <button
+        onClick={() => onSelect("toggleSidebar")}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.boxShadow = "0 0 12px #00FF87";
+          e.currentTarget.style.background = "#10241D";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.boxShadow = "none";
+          e.currentTarget.style.background = "#0D1117";
+        }}
         style={{
-          textAlign: "center",
-          fontSize: "0.8rem",
-          color: "#9CA3AF",
-          borderTop: "1px solid #1F2937",
-          paddingTop: "1rem",
-          marginTop: "2rem",
+          position: "absolute",
+          top: "50%",
+          right: "-16px",
+          transform: "translateY(-50%)",
+          width: "32px",
+          height: "32px",
+          borderRadius: "50%",
+          border: "2px solid #00FF87",
+          background: "#0D1117",
+          color: "#00FF87",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: "1.1rem",
+          fontWeight: "bold",
+          transition: "all 0.25s ease",
+          userSelect: "none",
         }}
       >
-        Season 2024/25
-      </div>
-    </div>
+        {collapsed ? "❯" : "❮"}
+      </button>
+    </aside>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export default function HistoricalData() {
   const [selectedTeam, setSelectedTeam] = useState(null);
@@ -8,7 +8,20 @@ export default function HistoricalData() {
   const [selectedSeason, setSelectedSeason] = useState("");
   const [matches, setMatches] = useState([]);
 
-  // === Premier League teams (sorted alphabetically) ===
+  // ===== Back to Top state =====
+  const [showButton, setShowButton] = useState(false);
+
+  // Show/hide Back to Top button on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowButton(window.scrollY > 300);
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // === Premier League teams ===
   const teams = [
     { name: "Arsenal", stadium: "Emirates Stadium, London" },
     { name: "Aston Villa", stadium: "Villa Park, Birmingham" },
@@ -69,7 +82,7 @@ export default function HistoricalData() {
       const data = await response.json();
       setSeasons(data);
     } catch (err) {
-      console.error("Error fetching seasons:", err);
+      console.error("Error:", err);
     }
 
     setLoadingSeasons(false);
@@ -78,26 +91,26 @@ export default function HistoricalData() {
   // === Select Season ===
   const handleSeasonSelect = async (value) => {
     if (!value) return;
-    const [seasonId, seasonCode] = value.split("|");
+    const [id, code] = value.split("|");
 
-    setSelectedSeason(seasonCode);
+    setSelectedSeason(code);
     setMatches([]);
     setLoadingMatches(true);
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${seasonId}/matches`
+        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${id}/matches`
       );
       const data = await response.json();
       setMatches(data);
     } catch (err) {
-      console.error("Error fetching matches:", err);
+      console.error("Error:", err);
     }
 
     setLoadingMatches(false);
   };
 
-  // === Reset back to all teams ===
+  // === Reset ===
   const handleReset = () => {
     setSelectedTeam(null);
     setSeasons([]);
@@ -111,20 +124,14 @@ export default function HistoricalData() {
         backgroundColor: "#0D1117",
         color: "#E5E7EB",
         minHeight: "100vh",
-        marginLeft: "250px",
-        padding: "2rem 3rem",
+        padding: "2rem",
         fontFamily: "'Inter', sans-serif",
       }}
     >
-      {/* ===== HEADER ===== */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      {/* HEADER */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h1 style={{ margin: 0, color: "#00FF87" }}>Historical Team Data</h1>
+
         {selectedTeam && (
           <button
             onClick={handleReset}
@@ -146,7 +153,7 @@ export default function HistoricalData() {
         )}
       </div>
 
-      {/* ===== GRID VIEW ===== */}
+      {/* GRID VIEW */}
       {!selectedTeam ? (
         <div
           style={{
@@ -168,12 +175,8 @@ export default function HistoricalData() {
                 cursor: "pointer",
                 transition: "transform 0.3s, background-color 0.3s",
               }}
-              onMouseEnter={(e) =>
-                (e.currentTarget.style.backgroundColor = "#1F2937")
-              }
-              onMouseLeave={(e) =>
-                (e.currentTarget.style.backgroundColor = "#111827")
-              }
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#1F2937")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#111827")}
             >
               <div
                 style={{
@@ -182,7 +185,6 @@ export default function HistoricalData() {
                   margin: "0 auto 0.8rem",
                   borderRadius: "50%",
                   backgroundColor: "#00FF87",
-                  opacity: 0.9,
                 }}
               ></div>
               <h3 style={{ margin: "0.2rem 0", fontSize: "1.05rem" }}>{team.name}</h3>
@@ -190,11 +192,10 @@ export default function HistoricalData() {
                 style={{
                   fontSize: "0.85rem",
                   color: "#9CA3AF",
-                  margin: "0.5rem 0 0 0",
+                  margin: "0.5rem 0 0",
                   backgroundColor: "#0F172A",
                   borderRadius: "8px",
                   padding: "0.5rem",
-                  lineHeight: "1.3",
                 }}
               >
                 {team.stadium}
@@ -203,15 +204,8 @@ export default function HistoricalData() {
           ))}
         </div>
       ) : (
-        // ===== SELECTED TEAM VIEW =====
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            marginTop: "4rem",
-          }}
-        >
+        // SELECTED TEAM VIEW
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "4rem" }}>
           <div
             style={{
               backgroundColor: "#111827",
@@ -219,8 +213,6 @@ export default function HistoricalData() {
               borderRadius: "16px",
               textAlign: "center",
               boxShadow: "0 0 20px rgba(0, 255, 135, 0.3)",
-              transform: "scale(1.05)",
-              transition: "transform 0.4s ease",
               maxWidth: "600px",
               width: "100%",
             }}
@@ -234,19 +226,16 @@ export default function HistoricalData() {
                 margin: "0 auto 1rem",
               }}
             ></div>
-            <h2 style={{ marginBottom: "0.5rem" }}>{selectedTeam.name}</h2>
+            <h2>{selectedTeam.name}</h2>
             <p style={{ color: "#9CA3AF" }}>{selectedTeam.stadium}</p>
 
             {loadingSeasons ? (
-              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>Loading seasons...</p>
+              <p>Loading seasons...</p>
             ) : seasons.length > 0 ? (
               <div style={{ marginTop: "1.5rem" }}>
-                <label htmlFor="season" style={{ color: "#D1D5DB" }}>
-                  Select a Premier League season:
-                </label>
+                <label style={{ color: "#D1D5DB" }}>Select a Premier League season:</label>
                 <br />
                 <select
-                  id="season"
                   value={selectedSeason}
                   onChange={(e) => handleSeasonSelect(e.target.value)}
                   style={{
@@ -267,44 +256,36 @@ export default function HistoricalData() {
                 </select>
               </div>
             ) : (
-              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>
-                No Premier League seasons found for {selectedTeam.name}.
-              </p>
+              <p>No Premier League seasons found.</p>
             )}
 
-            {/* ===== MATCHES TABLE ===== */}
-            {loadingMatches && <p style={{ color: "#9CA3AF" }}>Loading matches...</p>}
+            {loadingMatches && <p>Loading matches...</p>}
 
             {selectedSeason && matches.length > 0 && !loadingMatches && (
               <div style={{ marginTop: "2rem", textAlign: "left" }}>
-                <h3 style={{ color: "#00FF87", textAlign: "center" }}>
+                <h3 style={{ textAlign: "center", color: "#00FF87" }}>
                   {selectedTeam.name} – {selectedSeason} Matches
                 </h3>
-                <table
-                  style={{
-                    width: "100%",
-                    marginTop: "1rem",
-                    borderCollapse: "collapse",
-                    color: "#E5E7EB",
-                  }}
-                >
+
+                <table style={{ width: "100%", marginTop: "1rem", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ backgroundColor: "#1F2937" }}>
-                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Date</th>
-                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Home</th>
-                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Away</th>
-                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Score</th>
-                      <th style={{ padding: "0.75rem", borderBottom: "1px solid #374151" }}>Result</th>
+                      <th style={{ padding: "0.75rem" }}>Date</th>
+                      <th style={{ padding: "0.75rem" }}>Home</th>
+                      <th style={{ padding: "0.75rem" }}>Away</th>
+                      <th style={{ padding: "0.75rem" }}>Score</th>
+                      <th style={{ padding: "0.75rem" }}>Result</th>
                     </tr>
                   </thead>
                   <tbody>
                     {matches.map((m, idx) => {
                       const isHome = m.home_team === selectedTeam.name;
-                      let resultLabel = "";
-                      if (m.ftr === "D") resultLabel = "Draw";
-                      else if ((m.ftr === "H" && isHome) || (m.ftr === "A" && !isHome))
-                        resultLabel = "Win";
-                      else resultLabel = "Loss";
+                      let resultLabel =
+                        m.ftr === "D"
+                          ? "Draw"
+                          : (m.ftr === "H" && isHome) || (m.ftr === "A" && !isHome)
+                          ? "Win"
+                          : "Loss";
 
                       return (
                         <tr
@@ -320,24 +301,14 @@ export default function HistoricalData() {
                               year: "numeric",
                             })}
                           </td>
-                          <td
-                            style={{
-                              padding: "0.75rem",
-                              color: isHome ? "#00FF87" : "#E5E7EB",
-                            }}
-                          >
+                          <td style={{ padding: "0.75rem", color: isHome ? "#00FF87" : "#E5E7EB" }}>
                             {m.home_team}
                           </td>
-                          <td
-                            style={{
-                              padding: "0.75rem",
-                              color: !isHome ? "#00FF87" : "#E5E7EB",
-                            }}
-                          >
+                          <td style={{ padding: "0.75rem", color: !isHome ? "#00FF87" : "#E5E7EB" }}>
                             {m.away_team}
                           </td>
                           <td style={{ padding: "0.75rem" }}>
-                            {`${m.fthg ?? 0} - ${m.ftag ?? 0}`}
+                            {m.fthg ?? 0} - {m.ftag ?? 0}
                           </td>
                           <td
                             style={{
@@ -361,12 +332,43 @@ export default function HistoricalData() {
             )}
 
             {selectedSeason && matches.length === 0 && !loadingMatches && (
-              <p style={{ color: "#9CA3AF", marginTop: "1rem" }}>
-                No match data found for {selectedSeason}.
-              </p>
+              <p>No match data found for this season.</p>
             )}
           </div>
         </div>
+      )}
+
+      {/* ===== BACK TO TOP BUTTON ===== */}
+      {showButton && (
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          style={{
+            position: "fixed",
+            bottom: "30px",
+            right: "30px",
+            width: "50px",
+            height: "50px",
+            borderRadius: "50%",
+            backgroundColor: "#00FF87",
+            color: "#0D1117",
+            border: "none",
+            cursor: "pointer",
+            fontSize: "1.3rem",
+            fontWeight: "bold",
+            boxShadow: "0 0 12px rgba(0,255,135,0.6)",
+            transition: "transform 0.25s ease, box-shadow 0.25s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "scale(1.2)";
+            e.currentTarget.style.boxShadow = "0 0 16px rgba(0,255,135,0.9)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = "0 0 12px rgba(0,255,135,0.6)";
+          }}
+        >
+          ⮝
+        </button>
       )}
     </div>
   );

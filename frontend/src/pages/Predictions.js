@@ -107,7 +107,6 @@ export default function Predictions() {
   return (
     <div
       style={{
-        marginLeft: "250px",
         padding: "2.5rem",
         fontFamily: "'Inter', sans-serif",
         minHeight: "100vh",

@@ -1,20 +1,34 @@
 import os
 import pandas as pd
 import psycopg2
+import urllib.parse as up 
+from dotenv import load_dotenv
 
 print("CWD:", os.getcwd())
 print("SCRIPT DIR:", os.path.dirname(os.path.abspath(__file__)))
 
-# --- Connect to PostgreSQL ---
-conn = psycopg2.connect(
-    dbname="soccerdata_db",
-    user="postgres",
-    password="passwd",
-    host="localhost",
-    port="5432"
-)
+# --- Locate pginfo.env relative to this script ---
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))          # .../data/scripts
+ROOT_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "..")) # .../project root
+ENV_PATH = os.path.join(ROOT_DIR, "backend", "pginfo.env")       # .../backend/pginfo.env
+
+print("🔍 Looking for pginfo.env at:", ENV_PATH)
+
+# --- Load environment variables ---
+load_dotenv(ENV_PATH)
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+print("DATABASE_URL from env:", DATABASE_URL)
+
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL not found in pginfo.env")
+
+# --- Connect to Neon database ---
+conn = psycopg2.connect(DATABASE_URL)
 cur = conn.cursor()
 cur.execute("SET datestyle TO 'DMY';")
+print("✅ Connected to Neon")
 
 # ==========================================================
 # 🧹 RESET DATABASE STATE

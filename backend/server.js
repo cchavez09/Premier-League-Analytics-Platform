@@ -2,6 +2,7 @@
 // =====================================================
 // FUTSTAT BACKEND SERVER
 // =====================================================
+const pool = require("./database");
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -33,6 +34,17 @@ app.get("/", (req, res) => {
   res.send("✅ Futstat Backend is running ⚽");
 });
  
+
+app.get("/test-db", async (req, res) => {
+  try {
+    const result = await pool.query("SELECT NOW()");
+    res.json({ ok: true, time: result.rows[0] });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, error });
+  }
+});
+
 // =====================================================
 // LIVE PREMIER LEAGUE DATA ROUTE
 // =====================================================

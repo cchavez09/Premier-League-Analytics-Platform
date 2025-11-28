@@ -76,6 +76,8 @@ dist/
 .env.development.local
 .env.test.local
 .env.production.local
+pginfo.env
+backend/pginfo.env
 
 # OS specific
 .DS_Store

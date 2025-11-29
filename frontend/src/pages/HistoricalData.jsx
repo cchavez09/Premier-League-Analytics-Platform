@@ -70,7 +70,8 @@ export default function HistoricalData() {
     { name: "Wolverhampton Wanderers", stadium: "Molineux Stadium, Wolverhampton" },
   ].sort((a, b) => a.name.localeCompare(b.name));
 
-  const BACKEND_URL = import.meta.env.VITE_API_URL;
+  const BACKEND_URL = process.env.REACT_APP_API_URL;
+
 
   // === Select Team ===
   const handleSelect = async (team) => {

@@ -7,7 +7,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
  
-  const BACKEND_URL = import.meta.env.VITE_API_URL;
+  const BACKEND_URL = process.env.REACT_APP_API_URL;
  
   // === Fetch League Table ===
   useEffect(() => {

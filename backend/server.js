@@ -10,10 +10,6 @@ const path = require("path");
 // ✅ Load environment variables
 require("dotenv").config();
  
-// ✅ Use native fetch (Node 18+ supports it natively)
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
- 
 const app = express();
 app.use(cors());
 app.use(express.json());

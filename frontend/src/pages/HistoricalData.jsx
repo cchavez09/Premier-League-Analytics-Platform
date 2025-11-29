@@ -70,6 +70,8 @@ export default function HistoricalData() {
     { name: "Wolverhampton Wanderers", stadium: "Molineux Stadium, Wolverhampton" },
   ].sort((a, b) => a.name.localeCompare(b.name));
 
+  const BACKEND_URL = import.meta.env.VITE_API_URL;
+
   // === Select Team ===
   const handleSelect = async (team) => {
     setSelectedTeam(team);
@@ -78,7 +80,7 @@ export default function HistoricalData() {
     setLoadingSeasons(true);
 
     try {
-      const response = await fetch(`http://localhost:5000/api/teams/${team.name}/seasons`);
+      const response = await fetch(`${BACKEND_URL}/${team.name}/seasons`);
       const data = await response.json();
       setSeasons(data);
     } catch (err) {
@@ -99,7 +101,7 @@ export default function HistoricalData() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/teams/${selectedTeam.name}/seasons/${id}/matches`
+        `${BACKEND_URL}/api/teams/${selectedTeam.name}/seasons/${id}/matches`
       );
       const data = await response.json();
       setMatches(data);

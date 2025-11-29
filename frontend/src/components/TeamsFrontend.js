@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 
 // frontend deployment with backend for transition to cloud
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = process.env.REACT_APP_API_URL;
 
 const Teams = () => {
   const [teams, setTeams] = useState([]);

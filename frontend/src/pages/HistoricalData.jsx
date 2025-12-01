@@ -72,6 +72,7 @@ export default function HistoricalData() {
 
   const BACKEND_URL = process.env.REACT_APP_API_URL;
 
+
   // === Select Team ===
   const handleSelect = async (team) => {
     setSelectedTeam(team);
